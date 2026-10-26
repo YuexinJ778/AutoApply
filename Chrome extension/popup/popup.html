@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auto Apply</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="quick-panel">
+      <header class="panel-header">
+        <h1>Auto Apply</h1>
+        <button id="open-console-btn" type="button" class="ghost-btn">Console</button>
+      </header>
+
+      <section class="job-summary">
+        <h2>Current Job</h2>
+        <p id="job-summary-title">No job detected on this page.</p>
+        <p id="job-summary-subtitle">Open a job posting page to start.</p>
+        <p id="job-summary-meta" hidden>Detected on this page</p>
+        <button id="job-summary-open-settings-btn" type="button" class="job-summary-action-btn" hidden>Open Settings</button>
+      </section>
+
+      <section id="guard-notice" class="guard-notice hidden">
+        <p class="guard-notice-label">Missing Fields</p>
+        <ul id="guard-notice-list" class="guard-notice-list"></ul>
+        <div class="guard-notice-footer">
+          <button id="guard-notice-goto-btn" type="button" class="guard-notice-btn">Complete Profile →</button>
+          <button id="guard-notice-dismiss-btn" type="button" class="guard-notice-dismiss">Dismiss</button>
+        </div>
+      </section>
+
+      <section class="actions">
+        <button id="generate-btn" type="button" class="primary-btn">Start Apply</button>
+        <button id="autofill-btn" type="button" class="primary-btn">AutoFill Form</button>
+        <button id="save-job-btn" type="button" class="primary-btn">Save Job</button>
+        <button id="applications-btn" type="button" class="primary-btn">Applications</button>
+      </section>
+
+      <section class="runtime-info">
+        <p id="runtime-model">Model: -</p>
+        <p id="runtime-status">Status: Ready</p>
+      </section>
+    </main>
+
+    <script src="../lib/types.js"></script>
+    <script src="../lib/constants.js"></script>
+    <script src="../lib/messaging.js"></script>
+    <script src="../lib/utils/validation.js"></script>
+    <script src="../lib/schemas/jobTarget.js"></script>
+    <script src="../lib/schemas/candidateResume.js"></script>
+    <script src="../lib/schemas/tailoredResume.js"></script>
+    <script src="../lib/profile/profileNormalizer.js"></script>
+    <script src="../lib/profile/profileLoader.js"></script>
+    <script src="../lib/job/jobTargetNormalizer.js"></script>
+    <script src="../lib/job/jobTargetBuilder.js"></script>
+    <script src="../lib/tailoring/buildTailoredResumePrompt.js"></script>
+    <script src="../lib/tailoring/parseTailoredResumeJson.js"></script>
+    <script src="../lib/tailoring/repairTailoredResumeJson.js"></script>
+    <script src="../lib/tailoring/normalizeTailoredResumeDraft.js"></script>
+    <script src="../lib/tailoring/mergeTailoredResume.js"></script>
+    <script src="../lib/render/textWrap.js"></script>
+    <script src="../lib/render/resumeHtmlTemplate.js"></script>
+    <script src="../lib/render/resumeHtmlBuilder.js"></script>
+    <script src="../lib/render/resumePdfBuilder.js"></script>
+    <script src="../lib/render/artifactWriter.js"></script>
+    <script src="../lib/api.js"></script>
+    <script src="../storage/localStore.js"></script>
+    <script src="../storage/applicationStore.js"></script>
+    <script src="../storage/resumeRegistryStore.js"></script>
+    <script src="../storage/appDataStore.js"></script>
+    <script src="../lib/dataBoundary.js"></script>
+    <script src="popup.js"></script>
+  </body>
+</html>

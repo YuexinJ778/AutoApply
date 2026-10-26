@@ -1,0 +1,113 @@
+{
+  "header": {
+    "name": "Alex Chen",
+    "title": "Software Engineer",
+    "email": "alex.chen@example.com",
+    "phone": "+1-415-555-0134",
+    "location": "San Francisco, CA",
+    "links": [
+      {
+        "label": "LinkedIn",
+        "url": "https://www.linkedin.com/in/alexchen"
+      },
+      {
+        "label": "GitHub",
+        "url": "https://github.com/alexchen"
+      },
+      {
+        "label": "Portfolio",
+        "url": "https://alexchen.dev"
+      }
+    ]
+  },
+  "education": [
+    {
+      "school": "University of California, San Diego",
+      "degree": "B.S.",
+      "field": "Computer Science",
+      "location": "La Jolla, CA",
+      "startDate": "2017-09",
+      "endDate": "2021-06"
+    }
+  ],
+  "experience": [
+    {
+      "company": "Northstar Labs",
+      "title": "Software Engineer",
+      "location": "San Francisco, CA",
+      "startDate": "2022-07",
+      "endDate": "Present",
+      "bullets": [
+        "Built internal workflow tools in Node.js that reduced manual support operations for account onboarding.",
+        "Implemented deterministic data transformation steps for customer document processing, improving output consistency across runs.",
+        "Worked with product and design to ship reporting features used by sales and operations teams every week."
+      ]
+    },
+    {
+      "company": "Orbit Metrics",
+      "title": "Software Engineer Intern",
+      "location": "Remote",
+      "startDate": "2021-06",
+      "endDate": "2021-12",
+      "bullets": [
+        "Added backend endpoints and data validation logic for dashboard exports used by enterprise customers.",
+        "Improved CI debugging by simplifying log output and surfacing clearer failure categories for the team.",
+        "Wrote small frontend fixes that removed common layout issues in the analytics UI."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Resume Render Pipeline",
+      "role": "Personal Project",
+      "startDate": "2026-04",
+      "endDate": "Present",
+      "bullets": [
+        "Designed a deterministic pipeline that converts fixed resume JSON into fixed HTML and PDF outputs.",
+        "Separated data, templates, and scripts to keep rendering behavior stable and easy to debug.",
+        "Kept the implementation dependency-light to reduce moving parts and improve reproducibility."
+      ]
+    },
+    {
+      "name": "Interview Tracker",
+      "role": "Personal Project",
+      "startDate": "2025-11",
+      "endDate": "2026-01",
+      "bullets": [
+        "Built a small application to track job applications, interview stages, and follow-up deadlines.",
+        "Defined a clean JSON export format so application records could be inspected and migrated without database coupling.",
+        "Focused on simple, maintainable code paths instead of heavy abstractions or framework-specific features."
+      ]
+    }
+  ],
+  "skills": [
+    {
+      "category": "Languages",
+      "items": [
+        "Python",
+        "JavaScript",
+        "SQL",
+        "HTML",
+        "CSS"
+      ]
+    },
+    {
+      "category": "Backend",
+      "items": [
+        "Node.js",
+        "Express",
+        "REST APIs",
+        "Data Pipelines"
+      ]
+    },
+    {
+      "category": "Tools",
+      "items": [
+        "Git",
+        "GitHub Actions",
+        "Postman",
+        "JSON"
+      ]
+    }
+  ]
+}

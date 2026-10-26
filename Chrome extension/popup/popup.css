@@ -1,0 +1,286 @@
+:root {
+  color-scheme: light;
+  font-family: -apple-system, "Segoe UI", "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+
+  --bg:       #F9F8F7;
+  --surface:  #FFFFFF;
+  --hover-bg: #F4F3F1;
+
+  --border:   #E8E5E2;
+  --divider:  #EFEDEB;
+
+  --text:   #1A1614;
+  --text-2: #78716C;
+  --text-3: #A8A29E;
+
+  --accent:       #1C1917;
+  --accent-hover: #292524;
+  --accent-muted: #44403C;
+
+  --r: 8px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.hidden {
+  display: none !important;
+}
+
+body {
+  margin: 0;
+  min-width: 340px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+/* ── Layout ── */
+
+.quick-panel {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── Header ── */
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 14px;
+}
+
+.panel-header h1 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+  color: var(--text);
+}
+
+/* Console → text link */
+.ghost-btn {
+  border: none;
+  background: none;
+  color: var(--text-3);
+  padding: 0;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+
+.ghost-btn:hover {
+  color: var(--text-2);
+}
+
+.ghost-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Job Summary ── */
+
+.job-summary {
+  padding: 14px 0;
+  border-top: 1px solid var(--divider);
+}
+
+.job-summary h2 {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: var(--text-3);
+}
+
+.job-summary p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.job-summary p + p {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+#job-summary-meta {
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+/* "Open Settings" as underline link */
+.job-summary-action-btn {
+  margin-top: 10px;
+  border: none;
+  background: none;
+  color: var(--text-3);
+  padding: 0;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color 0.12s;
+}
+
+.job-summary-action-btn:hover {
+  color: var(--text-2);
+}
+
+/* ── Guard Notice (missing fields) ── */
+
+.guard-notice {
+  border: 1px solid #E8D98A;
+  border-left: 3px solid #C8A84B;
+  border-radius: var(--r);
+  background: #FDFBF5;
+  padding: 10px 12px;
+  margin-top: 0;
+}
+
+.guard-notice-label {
+  margin: 0 0 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+  color: #8A6E1A;
+}
+
+.guard-notice-list {
+  margin: 0 0 10px;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  list-style: disc;
+}
+
+.guard-notice-list li {
+  font-size: 12px;
+  color: var(--text-2);
+  line-height: 1.5;
+}
+
+.guard-notice-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.guard-notice-btn {
+  border: 1px solid #C8A84B;
+  background: none;
+  color: #7A5E10;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.guard-notice-btn:hover {
+  background: #FBF3D8;
+}
+
+.guard-notice-dismiss {
+  border: none;
+  background: none;
+  color: var(--text-3);
+  padding: 0;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: color 0.12s;
+}
+
+.guard-notice-dismiss:hover {
+  color: var(--text-2);
+}
+
+/* ── Action Buttons — 2×2 grid ── */
+
+.actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  padding: 14px 0;
+  border-top: 1px solid var(--divider);
+}
+
+/* Row 1: filled charcoal — primary productivity actions */
+.primary-btn {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #FFFFFF;
+  border-radius: var(--r);
+  height: 38px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: -0.1px;
+  cursor: pointer;
+  text-align: center;
+  line-height: 1.25;
+  transition: background 0.12s, border-color 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.primary-btn:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+/* Row 2: outlined — utility / navigation actions */
+.actions .primary-btn:nth-child(n+3) {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text-2);
+  height: 34px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.actions .primary-btn:nth-child(n+3):hover {
+  background: var(--hover-bg);
+  border-color: var(--accent-muted);
+  color: var(--text);
+}
+
+.primary-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Runtime Info ── */
+
+.runtime-info {
+  padding-top: 12px;
+  border-top: 1px solid var(--divider);
+  background: transparent;
+  border-radius: 0;
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+}
+
+.runtime-info p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.7;
+}

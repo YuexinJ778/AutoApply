@@ -1,0 +1,19 @@
+output/*
+!output/.gitkeep
+
+# Local environments and dependencies
+.venv/
+venv/
+node_modules/
+__pycache__/
+*.py[cod]
+
+# Local credentials and settings
+.env
+.env.*
+!.env.example
+
+# Operating system files and generated artifacts
+.DS_Store
+**/output/*
+!**/output/.gitkeep

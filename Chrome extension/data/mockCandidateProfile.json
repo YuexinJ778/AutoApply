@@ -1,0 +1,23 @@
+{
+  "email": "test.user@example.com",
+  "password": "TestPass123!",
+  "legalFirstName": "Test",
+  "legalLastName": "User",
+  "preferredFirstName": "Test",
+  "chineseFirstName": "测试",
+  "chineseLastName": "用户",
+  "internationalCallingCode": "+852",
+  "preferredContactNumber": "91234567",
+  "phone": "91234567",
+  "hasRelativesAtHsbc": "No",
+  "relativesDetails": "",
+  "isFormerEmployeeOrContractor": "No",
+  "employeeIdOrContractorInfo": "",
+  "diversityConsent": "No",
+  "gender": "Prefer not to say",
+  "rightToWork": "Yes",
+  "externalAuditorEmployment": "No",
+  "countryTerritory": "Hong Kong SAR",
+  "profileVisibility": "Only recruiters managing jobs I apply to",
+  "dataPrivacyAccepted": true
+}

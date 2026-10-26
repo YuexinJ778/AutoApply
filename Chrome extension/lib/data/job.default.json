@@ -1,0 +1,32 @@
+{
+  "company": "Atlas Commerce",
+  "title": "Software Engineer, Platform",
+  "role": "Software Engineer, Platform",
+  "location": "Remote",
+  "summary": "Atlas Commerce is hiring a software engineer to build platform tooling and internal systems that improve reliability for operations, onboarding, and data workflows.",
+  "description": "Atlas Commerce is hiring a software engineer to build platform tooling and internal systems that improve reliability for operations, onboarding, and data workflows. The role works across backend APIs, automation, and developer tooling.",
+  "responsibilities": [],
+  "requirements": [
+    "Experience building backend services and internal tools",
+    "Comfort with APIs, data validation, and deterministic processing",
+    "Ability to partner with product and operations teams",
+    "Strong debugging and delivery discipline"
+  ],
+  "preferredQualifications": [],
+  "keywords": [
+    "platform tooling",
+    "backend services",
+    "internal tools",
+    "data validation",
+    "deterministic processing"
+  ],
+  "skills": [
+    "Node.js",
+    "REST APIs",
+    "Automation",
+    "Data Pipelines"
+  ],
+  "jobUrl": "",
+  "sourceUrl": "",
+  "extractedAt": ""
+}

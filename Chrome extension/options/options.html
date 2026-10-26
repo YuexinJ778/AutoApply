@@ -1,0 +1,530 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Auto Apply Console</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="app-header">
+        <div>
+          <h1>Auto Apply</h1>
+          <p>Build profile once. Apply faster.</p>
+        </div>
+      </header>
+
+      <nav id="top-tabs" class="top-tabs">
+        <button class="tab-btn is-active" data-tab="dashboard">Dashboard</button>
+        <button class="tab-btn" data-tab="profile-resume">Profile</button>
+        <button class="tab-btn" data-tab="test">Test</button>
+        <button class="tab-btn" data-tab="autofill">AutoFill Answers</button>
+        <button class="tab-btn" data-tab="applications">Applications</button>
+        <button class="tab-btn" data-tab="notes">Notes</button>
+        <button class="tab-btn" data-tab="settings">Settings</button>
+      </nav>
+
+      <section id="view-dashboard" class="view-section">
+        <h2>Dashboard</h2>
+        <div class="stats-grid">
+          <article class="stat-card">
+            <h3>Total Applications</h3>
+            <p id="dashboard-stat-total" class="stat-value">0</p>
+          </article>
+          <article class="stat-card">
+            <h3>Saved</h3>
+            <p id="dashboard-stat-saved" class="stat-value">0</p>
+          </article>
+          <article class="stat-card">
+            <h3>Applied</h3>
+            <p id="dashboard-stat-applied" class="stat-value">0</p>
+          </article>
+          <article class="stat-card">
+            <h3>Interview</h3>
+            <p id="dashboard-stat-interview" class="stat-value">0</p>
+          </article>
+          <article class="stat-card">
+            <h3>Offer</h3>
+            <p id="dashboard-stat-offer" class="stat-value">0</p>
+          </article>
+          <article class="stat-card">
+            <h3>Rejected</h3>
+            <p id="dashboard-stat-rejected" class="stat-value">0</p>
+          </article>
+        </div>
+      </section>
+
+      <!-- Profile & Resume: split-view builder -->
+      <section id="view-profile-resume" class="view-section view-section-split hidden">
+
+        <div id="profile-resume-top-bar" class="app-mode-top-bar">
+          <p class="profile-resume-subtitle">Complete your profile and base resume data.</p>
+          <div class="app-mode-btn-row">
+            <button id="upload-resume-profile-top-btn" type="button" class="secondary-btn small-btn">Upload Resume</button>
+            <button id="save-profile-resume-top-btn" type="button" class="primary-btn small-btn">Save</button>
+          </div>
+        </div>
+
+        <div id="app-mode-top-bar" class="app-mode-top-bar" hidden>
+          <div class="app-mode-btn-row">
+            <button id="back-to-applications-btn" type="button" class="secondary-btn small-btn">Back to Applications</button>
+            <button id="save-app-resume-top-btn" type="button" class="primary-btn small-btn">Save</button>
+          </div>
+        </div>
+
+        <div class="resume-builder-split">
+
+          <!-- Left: Editor Panel -->
+          <div class="resume-editor-panel" id="resume-editor-panel">
+            <div class="editor-panel-header">
+              <h2 data-i18n="pageTitle">Profile</h2>
+            </div>
+
+            <!-- Editing mode switch -->
+            <div id="editor-mode-switch-bar" class="editor-mode-switch-bar hidden">
+              <span class="editor-mode-label">Editing Mode</span>
+              <div class="editor-mode-buttons" role="group" aria-label="Editing mode">
+                <button id="mode-btn-manual" class="mode-btn" data-mode="manual">Manual</button>
+                <button id="mode-btn-ai" class="mode-btn is-active" data-mode="ai">AI Assistant</button>
+              </div>
+            </div>
+
+            <div id="manual-generate-resume-row" class="manual-generate-resume-row hidden">
+              <button id="generate-manual-resume-btn" type="button" class="primary-btn small-btn">Generate Resume</button>
+              <button id="translate-manual-resume-btn" type="button" class="secondary-btn small-btn">Translate Resume to English</button>
+            </div>
+
+            <!-- AI chat panel (shown in AI mode) -->
+            <div id="ai-chat-panel" class="ai-chat-panel">
+              <div id="ai-chat-messages" class="ai-chat-messages"></div>
+              <div class="ai-chat-input-row">
+                <textarea id="ai-chat-input" class="ai-chat-input" rows="3" placeholder="Tell me what you want to change..."></textarea>
+                <button id="ai-chat-send-btn" type="button" class="primary-btn ai-chat-send-btn">Send</button>
+              </div>
+            </div>
+
+            <!-- Manual editor content (hidden in AI mode) -->
+            <div id="manual-editor-content" class="hidden">
+
+            <!-- Resume language control (English / Chinese only) -->
+            <div class="resume-language-row">
+              <span class="resume-language-label" data-i18n="langLabel">Resume Language</span>
+              <div class="resume-language-options">
+                <label class="lang-radio-label">
+                  <input type="radio" name="resumeLanguage" id="resume-lang-en" value="en" checked />
+                  <span data-i18n="langEnOption">English</span>
+                </label>
+                <label class="lang-radio-label">
+                  <input type="radio" name="resumeLanguage" id="resume-lang-zh" value="zh" />
+                  <span data-i18n="langZhOption">Chinese</span>
+                </label>
+              </div>
+            </div>
+
+            <article class="card profile-resume-section">
+              <h3 data-i18n="sectionBasicProfile">Contact Info</h3>
+              <div class="stack-form">
+                <label><span data-i18n="firstName">First Name</span><input id="profile-firstName" type="text" /></label>
+                <label><span data-i18n="lastName">Last Name</span><input id="profile-lastName" type="text" /></label>
+                <label><span data-i18n="email">Email</span><input id="profile-email" type="email" /></label>
+                <label><span data-i18n="phone">Phone</span><input id="profile-phone" type="text" /></label>
+                <label><span data-i18n="location">Location</span><input id="profile-location" type="text" /></label>
+                <div class="contact-links-editor">
+                  <span class="field-label">Links</span>
+                  <div id="profile-links-list" class="contact-links-list"></div>
+                  <button id="add-contact-link-btn" type="button" class="secondary-btn lightweight-action-btn">+ Add Link</button>
+                </div>
+              </div>
+            </article>
+
+            <article class="card profile-resume-section">
+              <h3 data-i18n="sectionResume">Resume</h3>
+              <div class="stack-form">
+                <div class="resume-block">
+                  <div id="resume-sections-list" class="item-list"></div>
+                  <p id="resume-sections-empty-state" class="empty-state-hint" data-i18n="emptySections">No sections added yet.</p>
+                  <div class="button-row">
+                    <button id="add-section-btn" type="button" class="secondary-btn lightweight-action-btn"><span data-i18n="addSection">+ Add Section</span></button>
+                  </div>
+                </div>
+              </div>
+            </article>
+
+            </div><!-- end manual-editor-content -->
+          </div><!-- end editor panel -->
+
+          <!-- Right: Preview Panel -->
+          <div class="resume-preview-panel" id="resume-preview-panel">
+            <div class="preview-panel-header">
+              <span class="preview-panel-title" data-i18n="previewTitle">Live Resume Preview</span>
+              <span id="preview-lang-status" class="preview-lang-status">Currently displaying in English</span>
+            </div>
+            <div id="resume-overflow-warning" class="resume-overflow-warning hidden" data-i18n="overflowWarning">
+              Content exceeds one A4 page. Consider shortening bullets, hiding sections, or using a compact template.
+            </div>
+            <div class="resume-preview-shell" id="resume-preview-shell">
+              <div id="resume-preview-state" class="resume-preview-state" hidden>Generating PDF preview...</div>
+              <div class="resume-page-scaler" id="resume-page-scaler">
+                <iframe
+                  id="resume-preview-iframe"
+                  class="resume-preview-iframe"
+                  title="Live Resume Preview"
+                ></iframe>
+              </div>
+            </div>
+          </div><!-- end preview panel -->
+
+        </div><!-- end resume-builder-split -->
+      </section>
+
+      <section id="view-test" class="view-section test-view hidden">
+        <div class="test-page-header">
+          <h2>Test</h2>
+          <p>HTML layout sandbox for testing interactive resume editing.</p>
+        </div>
+        <div class="test-toolbar">
+          <button id="test-add-text-btn" type="button" class="secondary-btn small-btn">Add Text</button>
+          <button id="test-add-line-btn" type="button" class="secondary-btn small-btn">Add Line</button>
+          <button id="test-clear-btn" type="button" class="secondary-btn small-btn danger-btn">Clear</button>
+          <button id="test-view-pdf-btn" type="button" class="secondary-btn small-btn">View PDF</button>
+        </div>
+        <div id="test-selected-toolbar" class="test-selected-toolbar">No object selected</div>
+        <div class="test-canvas-shell">
+          <div id="test-canvas" class="test-canvas" aria-label="HTML layout sandbox"></div>
+        </div>
+      </section>
+
+      <section id="view-autofill" class="view-section hidden">
+        <h2>AutoFill Answers</h2>
+        <article class="card">
+          <h3>Answer Editor</h3>
+          <label>Key<input id="autofill-key" type="text" placeholder="work_authorization_us" /></label>
+          <label>Label<input id="autofill-label" type="text" placeholder="US work authorization" /></label>
+          <label>Question Patterns (one per line)<textarea id="autofill-patterns" rows="4"></textarea></label>
+          <label>Answer<textarea id="autofill-answer" rows="3"></textarea></label>
+          <label>Confidence
+            <select id="autofill-confidence">
+              <option value="high">high</option>
+              <option value="medium">medium</option>
+              <option value="low">low</option>
+            </select>
+          </label>
+          <label class="inline-check"><input id="autofill-askEveryTime" type="checkbox" /> Ask every time</label>
+          <div class="button-row">
+            <button id="autofill-save-btn" type="button" class="primary-btn">Save Answer</button>
+            <button id="autofill-run-btn" type="button" class="secondary-btn">Run AutoFill On Current Form</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>Saved Answers</h3>
+          <ul id="autofill-answer-list" class="answer-list"></ul>
+        </article>
+      </section>
+
+      <section id="view-applications" class="view-section hidden">
+        <h2>Applications</h2>
+        <div class="toolbar-row applications-toolbar">
+          <label>Search
+            <input id="applications-search" type="text" placeholder="Search company, title, or location" />
+          </label>
+          <label>Status Filter
+            <select id="applications-filter">
+              <option value="all">All</option>
+              <option value="Saved">Saved</option>
+              <option value="Applied">Applied</option>
+              <option value="Interview">Interview</option>
+              <option value="Offer">Offer</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Withdrawn">Withdrawn</option>
+            </select>
+          </label>
+          <label>Sort by date
+            <select id="applications-sort">
+              <option value="newest">Newest first</option>
+              <option value="oldest">Oldest first</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="applications-table-wrap">
+          <table class="applications-table">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Job Title</th>
+                <th>Status</th>
+                <th>Location</th>
+                <th>Saved Date</th>
+                <th>Applied Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="applications-table-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="view-notes" class="view-section hidden">
+        <div class="notes-page-header">
+          <div>
+            <h2>Notes</h2>
+            <p>Review notes from all saved applications and ask AI about them.</p>
+          </div>
+        </div>
+        <div class="notes-page-grid">
+          <section class="notes-page-panel">
+            <div class="notes-page-panel-header">
+              <h3>All Application Notes</h3>
+            </div>
+            <div class="notes-page-filters">
+              <label>Search
+                <input id="global-notes-search" type="text" placeholder="Search notes..." />
+              </label>
+              <label>Company
+                <select id="global-notes-company-filter">
+                  <option value="all">All Companies</option>
+                </select>
+              </label>
+              <label>Status
+                <select id="global-notes-status-filter">
+                  <option value="all">All Statuses</option>
+                </select>
+              </label>
+            </div>
+            <div id="global-notes-list" class="global-notes-list"></div>
+          </section>
+
+          <section class="notes-page-panel notes-ai-panel">
+            <div class="notes-page-panel-header">
+              <h3>AI Notes Assistant</h3>
+              <div class="notes-ai-header-actions">
+                <button id="notes-ai-export-btn" type="button" class="secondary-btn small-btn">Export</button>
+                <button id="notes-ai-clear-btn" type="button" class="secondary-btn small-btn danger-btn">Clear</button>
+              </div>
+            </div>
+            <div id="notes-ai-messages" class="notes-ai-messages"></div>
+            <div id="notes-ai-empty-hint" class="notes-ai-empty-hint hidden">No notes are available yet. Add notes from an application first.</div>
+            <div class="notes-ai-input-row">
+              <textarea id="notes-ai-input" class="notes-ai-input" rows="3" placeholder="Ask about your application notes..."></textarea>
+              <button id="notes-ai-send-btn" type="button" class="primary-btn notes-ai-send-btn">Send</button>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view-section hidden">
+        <h2>Settings</h2>
+        <article class="card">
+          <h3>Model Settings</h3>
+          <label>Provider
+            <select id="settings-provider">
+              <option value="minimax">minimax</option>
+              <option value="openai">openai</option>
+              <option value="deepseek">deepseek</option>
+              <option value="ollama">ollama</option>
+            </select>
+          </label>
+          <label>Model<input id="settings-model" type="text" placeholder="Model name" /></label>
+          <label>API Key<input id="settings-api-key" type="password" placeholder="API key" /></label>
+          <label>Base URL<input id="settings-base-url" type="url" placeholder="https://api.example.com" /></label>
+          <div class="button-row">
+            <button id="settings-save-btn" type="button" class="primary-btn">Save Settings</button>
+            <button id="settings-test-connection-btn" type="button" class="secondary-btn">Test Connection</button>
+          </div>
+        </article>
+
+        <article class="card">
+          <h3>Local Resume Drafts</h3>
+          <button id="view-local-resumes-btn" type="button" class="secondary-btn">View All Local Resumes</button>
+          <div id="local-resumes-panel" hidden></div>
+        </article>
+
+        <article class="card">
+          <h3>Profile Data</h3>
+          <p class="settings-card-description">Reset the saved Profile data stored on this device. This will not delete applications or application-specific resumes.</p>
+          <button id="reset-profile-resume-btn" type="button" class="secondary-btn danger-btn">Reset Profile</button>
+        </article>
+
+      </section>
+
+      <footer class="status-bar">
+        <span id="status-left">Ready.</span>
+        <span id="status-right">Storage: appDataV1</span>
+      </footer>
+
+      <!-- Application Notes Modal -->
+      <div id="notes-modal-overlay" class="notes-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="notes-modal-title">
+        <div class="notes-modal">
+          <div class="notes-modal-header">
+            <div>
+              <h2 id="notes-modal-title" class="notes-modal-title">Application Notes</h2>
+              <p id="notes-modal-subtitle" class="notes-modal-subtitle"></p>
+            </div>
+            <button id="notes-modal-close-btn" type="button" class="notes-modal-close-btn" aria-label="Close">&#x2715;</button>
+          </div>
+          <div class="notes-modal-body">
+            <div class="notes-list-panel">
+              <div class="notes-list-header">
+                <span class="notes-list-heading">Notes</span>
+                <button id="notes-new-btn" type="button" class="secondary-btn small-btn">+ New Note</button>
+              </div>
+              <input id="notes-search-input" type="text" class="notes-search-input" placeholder="Search notes..." aria-label="Search notes" />
+              <div id="notes-list-items" class="notes-list-items"></div>
+            </div>
+            <div class="notes-editor-panel">
+              <div class="notes-editor-header">
+                <div class="notes-editor-title-group">
+                  <span class="notes-editor-heading">NOTE EDITOR</span>
+                  <div class="notes-mode-switch" role="group" aria-label="Note editor mode">
+                    <button id="notes-mode-write-btn" type="button" class="notes-mode-btn is-active" data-action="notes-mode-write">Write</button>
+                    <button id="notes-mode-preview-btn" type="button" class="notes-mode-btn" data-action="notes-mode-preview">Preview</button>
+                  </div>
+                </div>
+                <div class="notes-editor-actions">
+                  <button id="notes-save-btn" type="button" class="primary-btn small-btn" disabled>Save Note</button>
+                  <button id="notes-delete-btn" type="button" class="secondary-btn small-btn danger-btn" disabled>Delete Note</button>
+                </div>
+              </div>
+              <div id="notes-editor-content" class="notes-editor-content"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="notes-ai-export-modal-overlay" class="notes-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="notes-ai-export-modal-title">
+        <div class="notes-modal notes-ai-export-modal">
+          <div class="notes-modal-header">
+            <div>
+              <h2 id="notes-ai-export-modal-title" class="notes-modal-title">Export AI Notes Assistant</h2>
+              <p class="notes-modal-subtitle">Save this conversation as an application note.</p>
+            </div>
+            <button id="notes-ai-export-close-btn" type="button" class="notes-modal-close-btn" aria-label="Close">&#x2715;</button>
+          </div>
+          <div class="notes-modal-body notes-ai-export-body">
+            <label class="notes-field-label">Note Time
+              <input id="notes-ai-export-time-input" type="date" class="notes-date-input" />
+            </label>
+            <label class="notes-field-label">Note Name
+              <input id="notes-ai-export-name-input" type="text" class="notes-title-input" />
+            </label>
+            <label class="notes-field-label">Target Application / Job
+              <select id="notes-ai-export-application-select" class="notes-title-input"></select>
+            </label>
+            <div id="notes-ai-export-empty-msg" class="notes-validation-msg hidden">No saved applications or jobs are available. Save an application first.</div>
+            <div id="notes-ai-export-validation-msg" class="notes-validation-msg"></div>
+            <div class="notes-editor-actions">
+              <button id="notes-ai-export-submit-btn" type="button" class="primary-btn small-btn">Export Note</button>
+              <button id="notes-ai-export-cancel-btn" type="button" class="secondary-btn small-btn">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="upload-resume-modal-overlay" class="upload-resume-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="upload-resume-modal-title">
+        <div class="upload-resume-modal">
+          <div class="upload-resume-modal-header">
+            <div>
+              <h2 id="upload-resume-modal-title" class="upload-resume-modal-title">Upload Resume</h2>
+              <p id="upload-resume-modal-subtitle" class="upload-resume-modal-subtitle">Import a PDF resume into your Profile resume.</p>
+            </div>
+            <button id="upload-resume-close-btn" type="button" class="notes-modal-close-btn" aria-label="Close">&#x2715;</button>
+          </div>
+          <div class="upload-resume-modal-body">
+            <label class="upload-resume-file-label">PDF Resume
+              <input id="upload-resume-file-input" type="file" accept="application/pdf,.pdf" />
+            </label>
+            <div id="upload-resume-status" class="upload-resume-status">Choose a PDF resume to start importing.</div>
+            <div id="upload-resume-error" class="upload-resume-error hidden"></div>
+            <div id="upload-resume-pdf-preview-wrap" class="upload-resume-pdf-preview-wrap">
+              <div class="upload-resume-section-header">
+                <h3>PDF Preview</h3>
+                <div id="upload-resume-pdf-nav" class="upload-resume-pdf-nav hidden">
+                  <button id="upload-resume-pdf-prev-btn" type="button" class="secondary-btn small-btn" aria-label="Previous page">&#8249;</button>
+                  <span id="upload-resume-pdf-page-info" class="upload-resume-pdf-page-info">Page 1 of 1</span>
+                  <button id="upload-resume-pdf-next-btn" type="button" class="secondary-btn small-btn" aria-label="Next page">&#8250;</button>
+                </div>
+              </div>
+              <div id="upload-resume-pdf-canvas-scroll" class="upload-resume-pdf-canvas-scroll">
+                <div id="upload-resume-pdf-canvas-container" class="upload-resume-pdf-canvas-container">
+                  <div id="upload-resume-pdf-placeholder" class="upload-resume-pdf-placeholder">No PDF selected.</div>
+                </div>
+              </div>
+            </div>
+            <div class="upload-resume-text-wrap">
+              <div class="upload-resume-section-header">
+                <h3>Extracted Text</h3>
+                <div class="upload-resume-markdown-actions">
+                  <div id="upload-resume-text-meta" class="upload-resume-markdown-meta">No text extracted yet.</div>
+                  <button id="upload-resume-copy-text-btn" type="button" class="secondary-btn small-btn" disabled>Copy Text</button>
+                </div>
+              </div>
+              <div id="upload-resume-quality-report" class="upload-resume-quality-report hidden">
+                <span id="upload-resume-quality-label" class="upload-resume-quality-label"></span>
+                <ul id="upload-resume-quality-reasons" class="upload-resume-quality-reasons"></ul>
+              </div>
+              <pre id="upload-resume-text-preview" class="upload-resume-markdown-preview">No text extracted yet.</pre>
+            </div>
+            <div class="upload-resume-paste-wrap" id="upload-resume-paste-wrap">
+              <div class="upload-resume-section-header">
+                <h3>Paste Resume Text</h3>
+                <button id="upload-resume-use-pasted-text-btn" type="button" class="secondary-btn small-btn" disabled>Use Pasted Text</button>
+              </div>
+              <p class="upload-resume-paste-help">If the extracted text is unreadable, copy the text from your PDF viewer and paste it here.</p>
+              <textarea id="upload-resume-paste-textarea" class="upload-resume-paste-textarea" placeholder="Paste resume text or Markdown here..." rows="6"></textarea>
+            </div>
+            <div class="upload-resume-markdown-wrap">
+              <div class="upload-resume-section-header">
+                <h3>Extracted Markdown</h3>
+                <div class="upload-resume-markdown-actions">
+                  <div id="upload-resume-markdown-meta" class="upload-resume-markdown-meta">No Markdown extracted yet.</div>
+                  <button id="upload-resume-copy-markdown-btn" type="button" class="secondary-btn small-btn" disabled>Copy Markdown</button>
+                </div>
+              </div>
+              <pre id="upload-resume-markdown-preview" class="upload-resume-markdown-preview"></pre>
+            </div>
+            <div class="upload-resume-progress-wrap">
+              <h3>Import Progress</h3>
+              <div id="upload-resume-log" class="upload-resume-log"></div>
+            </div>
+          </div>
+          <div class="upload-resume-modal-footer">
+            <button id="upload-resume-cancel-btn" type="button" class="secondary-btn">Cancel Import</button>
+            <button id="upload-resume-done-btn" type="button" class="primary-btn hidden">Close</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="../lib/types.js"></script>
+    <script src="../lib/constants.js"></script>
+    <script src="../lib/messaging.js"></script>
+    <script src="../lib/utils/validation.js"></script>
+    <script src="../lib/schemas/jobTarget.js"></script>
+    <script src="../lib/schemas/candidateResume.js"></script>
+    <script src="../lib/schemas/tailoredResume.js"></script>
+    <script src="../lib/profile/profileNormalizer.js"></script>
+    <script src="../lib/profile/profileLoader.js"></script>
+    <script src="../lib/job/jobTargetNormalizer.js"></script>
+    <script src="../lib/job/jobTargetBuilder.js"></script>
+    <script src="../lib/tailoring/buildTailoredResumePrompt.js"></script>
+    <script src="../lib/tailoring/parseTailoredResumeJson.js"></script>
+    <script src="../lib/tailoring/repairTailoredResumeJson.js"></script>
+    <script src="../lib/tailoring/normalizeTailoredResumeDraft.js"></script>
+    <script src="../lib/tailoring/mergeTailoredResume.js"></script>
+    <script src="../lib/render/textWrap.js"></script>
+    <script src="../lib/render/resumeHtmlTemplate.js"></script>
+    <script src="../lib/render/resumeHtmlBuilder.js"></script>
+    <script src="../lib/render/resumePdfBuilder.js"></script>
+    <script src="../lib/render/resumeA4Template.js"></script>
+    <script src="../lib/render/artifactWriter.js"></script>
+    <script src="../lib/api.js"></script>
+    <script src="../storage/localStore.js"></script>
+    <script src="../storage/appDataStore.js"></script>
+    <script src="../storage/resumeRegistryStore.js"></script>
+    <script src="../lib/dataBoundary.js"></script>
+    <script src="resumeFunctions.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

@@ -1,0 +1,113 @@
+{
+  "meta": {},
+  "header": {
+    "name": "Alex Chen",
+    "title": "Software Engineer",
+    "email": "alex.chen@example.com",
+    "phone": "+1-415-555-0134",
+    "location": "San Francisco, CA",
+    "links": [
+      {
+        "label": "LinkedIn",
+        "url": "https://www.linkedin.com/in/alexchen"
+      },
+      {
+        "label": "GitHub",
+        "url": "https://github.com/alexchen"
+      },
+      {
+        "label": "Portfolio",
+        "url": "https://alexchen.dev"
+      }
+    ]
+  },
+  "summary": "Software Engineer with experience building internal tools, backend services, and data pipelines that improve operational reliability. Proven ability to develop deterministic processing systems and partner with product and operations teams.",
+  "education": [
+    {
+      "school": "University of California, San Diego",
+      "degree": "B.S.",
+      "field": "Computer Science",
+      "location": "La Jolla, CA",
+      "startDate": "2017-09",
+      "endDate": "2021-06"
+    }
+  ],
+  "experience": [
+    {
+      "company": "Northstar Labs",
+      "title": "Software Engineer",
+      "location": "San Francisco, CA",
+      "startDate": "2022-07",
+      "endDate": "Present",
+      "bullets": [
+        "Built internal workflow tools in Node.js that reduced manual support operations for account onboarding, directly supporting operations team efficiency.",
+        "Implemented deterministic data transformation steps for customer document processing, improving output consistency and reliability across runs.",
+        "Collaborated with product and design to ship reporting features used by sales and operations teams weekly."
+      ]
+    },
+    {
+      "company": "Orbit Metrics",
+      "title": "Software Engineer Intern",
+      "location": "Remote",
+      "startDate": "2021-06",
+      "endDate": "2021-12",
+      "bullets": [
+        "Developed backend endpoints and data validation logic for dashboard exports used by enterprise customers, supporting API reliability.",
+        "Improved CI debugging by simplifying log output and surfacing clearer failure categories, enhancing delivery discipline.",
+        "Fixed frontend layout issues in the analytics UI to improve user experience."
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "name": "Resume Render Pipeline",
+      "role": "Personal Project",
+      "startDate": "2026-04",
+      "endDate": "Present",
+      "bullets": [
+        "Designed a deterministic pipeline that converts fixed resume JSON into fixed HTML and PDF outputs for reproducible rendering.",
+        "Separated data, templates, and scripts to keep rendering behavior stable and easy to debug.",
+        "Kept implementation dependency-light to reduce moving parts and improve reproducibility."
+      ]
+    },
+    {
+      "name": "Interview Tracker",
+      "role": "Personal Project",
+      "startDate": "2025-11",
+      "endDate": "2026-01",
+      "bullets": [
+        "Built a small application to track job applications, interview stages, and follow-up deadlines for personal job search management.",
+        "Defined a clean JSON export format so application records could be inspected and migrated without database coupling.",
+        "Focused on simple, maintainable code paths instead of heavy abstractions or framework-specific features."
+      ]
+    }
+  ],
+  "skills": [
+    {
+      "category": "Languages",
+      "items": [
+        "Python",
+        "JavaScript",
+        "SQL"
+      ]
+    },
+    {
+      "category": "Backend",
+      "items": [
+        "Node.js",
+        "Express",
+        "REST APIs",
+        "Data Pipelines"
+      ]
+    },
+    {
+      "category": "Tools",
+      "items": [
+        "Git",
+        "GitHub Actions",
+        "Postman",
+        "JSON"
+      ]
+    }
+  ]
+}

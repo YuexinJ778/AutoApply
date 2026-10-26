@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Applications</title>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        font-family: Inter, "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+        background: #f7f8fb;
+        color: #111827;
+      }
+
+      main {
+        width: min(560px, calc(100vw - 32px));
+        border: 1px solid #e6e9f0;
+        border-radius: 14px;
+        background: #ffffff;
+        padding: 22px;
+        display: grid;
+        gap: 10px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 24px;
+      }
+
+      p {
+        margin: 0;
+        color: #4b5563;
+        line-height: 1.5;
+      }
+
+      button {
+        border: 1px solid #c7d7fe;
+        border-radius: 10px;
+        padding: 10px 14px;
+        background: #eef2ff;
+        color: #3730a3;
+        font-weight: 600;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Applications</h1>
+      <p>Saved Jobs was merged into Auto Apply Console Applications.</p>
+      <p>You are being redirected to Console &gt; Applications now.</p>
+      <button id="open-applications-btn" type="button">Open Console Applications</button>
+    </main>
+    <script src="saved-jobs.js"></script>
+  </body>
+</html>

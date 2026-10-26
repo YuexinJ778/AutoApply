@@ -1,0 +1,56 @@
+{
+  "manifest_version": 3,
+  "name": "Stage 3 Page Extractor",
+  "version": "0.1.0",
+  "action": {
+    "default_popup": "popup/popup.html"
+  },
+  "options_page": "options/options.html",
+  "background": {
+    "service_worker": "background/background.js"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab",
+    "scripting",
+    "downloads",
+    "debugger"
+  ],
+  "host_permissions": [
+    "https://api.minimax.io/*",
+    "<all_urls>"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://career2.successfactors.eu/*",
+        "<all_urls>"
+      ],
+      "js": [
+        "lib/types.js",
+        "utils/extractVisibleText.js",
+        "lib/profile/profileNormalizer.js",
+        "storage/appDataStore.js",
+        "lib/profile/profileLoader.js",
+        "storage/resumeRegistryStore.js",
+        "storage/applicationStore.js",
+        "storage/autofillKnowledgeBase.js",
+        "content/applyPipeline.js",
+        "content/stage8KeywordAutofill.js",
+        "content/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "data/mockCandidateProfile.json"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
+}
