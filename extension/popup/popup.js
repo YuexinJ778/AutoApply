@@ -1058,7 +1058,7 @@
       const resultData = response.data && typeof response.data === "object" ? response.data : {};
       if (resultData.trackerJob) showTrackerJob(resultData.trackerJob);
       if (resultData.trackerError) setTrackerStatus(resultData.trackerError);
-      const filledCount = Number(resultData.filledFieldCount || 0) + Number(resultData.selectFilledCount || 0) + Number(resultData.checkboxFilledCount || 0);
+      const { filledFieldCount: filledCount, formFieldCount } = resultData.autofillStats;
 
       if (trigger === "auto") {
         await markAutoFillCompletedForPage(activeTab);
@@ -1074,7 +1074,7 @@
         setApplicationFormSummaryState("AutoFill completed");
         setStatus("AutoFill completed.\n\nPlease review all information carefully before submitting your application.");
       } else {
-        setStatus("Autofill completed. Filled=" + String(filledCount));
+        setStatus("Autofill completed. Filled=" + String(filledCount) + "/" + String(formFieldCount));
       }
 
       return { ok: true, filledCount: filledCount };
@@ -1223,6 +1223,8 @@
       const request = messaging && typeof messaging.buildGenerateResumeRequest === "function"
         ? messaging.buildGenerateResumeRequest(jobData, settings, { profile: appData.profile, masterResume: appData.masterResume })
         : { jobData: jobData, settings: settings, profile: appData.profile, masterResume: appData.masterResume };
+      request.activeResumeLanguage = canonicalData.activeResumeLanguage === "zh" ? "zh" : "en";
+      request.currentResume = canonicalData.resumes && canonicalData.resumes[request.activeResumeLanguage];
 
       setStatus("Generating tailored resume...");
       setDetectedJobSummaryState(currentJob, "Generating resume...");

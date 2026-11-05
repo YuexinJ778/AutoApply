@@ -22,6 +22,8 @@ from typing import Any, BinaryIO, Mapping, Sequence
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
+from calendar_utils import resolve_local_datetime
+
 
 PROJECT_ROOT = Path(__file__).resolve().parent
 DATA_DIR = PROJECT_ROOT / "data"
@@ -2447,6 +2449,153 @@ def delete_attachment(job_id: str, file_id: str) -> bool:
             ) from rollback_error
         raise OSError("Attachment deletion failed; its file and index were preserved.") from error
     return True
+
+
+_TRACKER_ACTION_FIELDS = {
+    "setJobStatus": ("company", "status"),
+    "setAppliedDate": ("company", "date"),
+    "addJobNote": ("company", "text"),
+    "addReminder": ("company", "kind", "datetime", "title"),
+    "completeReminder": ("company", "title"),
+}
+
+
+class _TrackerResolutionError(Exception):
+    def __init__(self, code: str, message: str, candidates=None):
+        self.response = {"ok": False, "code": code, "error": message}
+        if candidates is not None:
+            self.response["candidates"] = candidates
+        super().__init__(message)
+
+
+def _tracker_text(value: Any, field: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{field} must be nonempty text.")
+    return value.strip()
+
+
+def _validate_tracker_calls(calls: Any) -> list[dict[str, Any]]:
+    if not isinstance(calls, list) or len(calls) > 10:
+        raise ValueError("functionCalls must be an array of at most 10 tracker actions.")
+    validated = []
+    for call in calls:
+        if not isinstance(call, dict) or set(call) != {"name", "args"}:
+            raise ValueError("Each tracker action must contain only name and args.")
+        name = call["name"]
+        if not isinstance(name, str) or name not in _TRACKER_ACTION_FIELDS:
+            raise ValueError("Unsupported tracker action.")
+        args = call["args"]
+        fields = _TRACKER_ACTION_FIELDS[name]
+        if not isinstance(args, dict) or set(args) - {*fields, "jobTitle"}:
+            raise ValueError(f"{name} contains unsupported arguments.")
+        normalized = {field: _tracker_text(args.get(field), field) for field in fields}
+        if "jobTitle" in args:
+            normalized["jobTitle"] = _tracker_text(args["jobTitle"], "jobTitle")
+        if name == "addJobNote":
+            normalized["text"] = args["text"]
+        validated.append({"name": name, "args": normalized})
+    return validated
+
+
+def _resolve_tracker_job(args, jobs):
+    matches = [job for job in jobs if job["company"].strip().casefold() == args["company"].casefold()
+               and ("jobTitle" not in args or job["job_title"].strip().casefold() == args["jobTitle"].casefold())]
+    if not matches:
+        raise _TrackerResolutionError("NOT_FOUND", f"No active job matches {args['company']}.")
+    if len(matches) > 1:
+        raise _TrackerResolutionError("AMBIGUOUS", "More than one job matches. Specify the company and job title.",
+                              [{"company": job["company"], "jobTitle": job["job_title"]} for job in matches])
+    return matches[0]
+
+
+def _tracker_reminder_payload(args, timezone_name):
+    zone = _tracker_text(timezone_name, "timezone")
+    if "T" not in args["datetime"]:
+        raise ValueError("datetime must include an ISO date and time (YYYY-MM-DDTHH:MM).")
+    try:
+        start = datetime.fromisoformat(args["datetime"])
+    except ValueError as error:
+        raise ValueError("datetime must be an ISO date and time.") from error
+    if start.tzinfo is None:
+        try:
+            start = resolve_local_datetime(start.date(), start.time(), zone)
+        except ZoneInfoNotFoundError as error:
+            raise ValueError("Reminder timezone must be a valid IANA timezone name.") from error
+    now = _utc_now()
+    return _validate_reminder({
+        "id": str(uuid.uuid4()), "created_at": now, "updated_at": now,
+        "title": args["title"], "kind": args["kind"], "start_at": start.isoformat(),
+        "timezone": zone, "status": "scheduled", "end_at": None,
+        "location_or_url": "", "notes": "",
+    })
+
+
+def _resolve_tracker_reminder(job, title):
+    matches = [item for item in list_reminders(job["id"])
+               if item["title"].strip().casefold() == title.casefold()]
+    scheduled = [item for item in matches if item["status"] == "scheduled"]
+    eligible = scheduled or [item for item in matches if item["status"] == "completed"]
+    if not eligible:
+        raise _TrackerResolutionError("NOT_FOUND", f"No scheduled or completed reminder named {title} matches this job.")
+    if len(eligible) > 1:
+        raise _TrackerResolutionError("AMBIGUOUS", f"Multiple reminders named {title} match this job. Use the dashboard to choose the reminder by date.")
+    return eligible[0]
+
+
+def _prepare_tracker_action(call, jobs, settings, timezone_name):
+    name, args = call["name"], call["args"]
+    job = _resolve_tracker_job(args, jobs)
+    if name == "setJobStatus":
+        statuses = [item for item in settings["statuses"] if args["status"].casefold() in
+                    {item["id"].casefold(), item["label"].strip().casefold()}]
+        if len(statuses) != 1:
+            raise ValueError("status must identify one configured status ID or label.")
+        value = {"status_id": statuses[0]["id"]}
+        validate_job_values({**job, **value})
+        _validate_job_status({**job, **value})
+    elif name == "setAppliedDate":
+        value = {"applied_date": args["date"]}
+        validate_job_values({**job, **value})
+    elif name == "addJobNote":
+        get_job_notes(job["id"])
+        value = args["text"]
+    elif name == "addReminder":
+        value = _tracker_reminder_payload(args, timezone_name)
+        load_reminders(job["id"])
+    else:
+        value = _resolve_tracker_reminder(job, args["title"])
+    return name, job["id"], value
+
+
+@_locked
+def execute_tracker_actions(function_calls: Any, timezone_name: str = "") -> dict[str, Any]:
+    """Resolve and validate every tracker action before changing local data."""
+
+    calls = _validate_tracker_calls(function_calls)
+    if not calls:
+        return {"ok": True, "results": []}
+    jobs = [job for job in load_jobs()["jobs"] if not job["archived"]]
+    settings = load_settings()
+    try:
+        prepared = [_prepare_tracker_action(call, jobs, settings, timezone_name) for call in calls]
+    except _TrackerResolutionError as error:
+        return error.response
+
+    results = []
+    for name, job_id, value in prepared:
+        result = {"name": name}
+        if name in ("setJobStatus", "setAppliedDate"):
+            update_job(job_id, value)
+        elif name == "addJobNote":
+            previous = get_job_notes(job_id).rstrip("\n")
+            save_job_notes(job_id, previous + ("\n\n" if previous else "") + value)
+        elif name == "addReminder":
+            result["reminder"] = create_reminder(job_id, value)
+        else:
+            result["reminder"] = value if value["status"] == "completed" else set_reminder_status(job_id, value["id"], "completed")
+        result["job"] = get_job_by_id(job_id)
+        results.append(result)
+    return {"ok": True, "results": results}
 
 
 def calculate_summary_counts(

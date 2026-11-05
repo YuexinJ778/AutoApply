@@ -1707,7 +1707,7 @@
     const resumeRegistry = global.Stage6ResumeRegistryStorage;
     const uploadContainer = resolveUploadContainer();
     const uploadInput = resolveUploadInput(input && input.selector);
-    const fileInputSelector = uploadInput && uploadInput.id ? "#" + uploadInput.id : uploadInput ? "input[type=file]" : "";
+    const fileInputSelector = uploadInput ? buildStableSelector(uploadInput) : "";
     const uploadContainerFound = Boolean(uploadContainer);
 
     if (!uploadInput) {
@@ -2120,13 +2120,16 @@
     return "draft_prepared";
   }
 
-  function countAutofillStats(formFields, fillResults) {
+  function countAutofillStats(formFields, fillResults, uploadResult) {
     const detected = new Set(formFields.map(function scannedSelector(field) {
       return cleanString(field.selector);
     }).filter(Boolean));
     const filled = new Set(fillResults.filter(function successfulScannedFill(result) {
       return result.status === "filled" && detected.has(result.fieldSelector);
     }).map(function filledSelector(result) { return result.fieldSelector; }));
+    if (uploadResult && uploadResult.ok === true && detected.has(uploadResult.fileInputSelector)) {
+      filled.add(uploadResult.fileInputSelector);
+    }
     return { formFieldCount: detected.size, filledFieldCount: filled.size };
   }
 
@@ -2561,7 +2564,7 @@
       preSubmitCheck: preSubmitCheck,
       uploadResult: uploadResult,
       fillResults: fillResults,
-      autofillStats: countAutofillStats(formFields, fillResults),
+      autofillStats: countAutofillStats(formFields, fillResults, uploadResult),
       trackerContext: trackerContext
     });
   }

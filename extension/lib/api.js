@@ -1194,7 +1194,7 @@
     return next;
   }
 
-  async function writeArtifacts(draft, jobTarget, baseResult) {
+  async function writeArtifacts(draft, jobTarget, baseResult, renderedHtml) {
     var result = mergeObjects(baseResult, {});
     var writer = isObject(global.Stage5ArtifactWriter) ? global.Stage5ArtifactWriter : null;
     var htmlBuilder = isObject(global.Stage5ResumeHtmlBuilder) ? global.Stage5ResumeHtmlBuilder : null;
@@ -1233,7 +1233,9 @@
     try {
       result.stage = STAGES.BUILD_HTML;
       result.stageText = "Building HTML artifact";
-      htmlText = htmlBuilder.buildTailoredResumeHtml(draft, { jobTarget: jobTarget });
+      htmlText = typeof renderedHtml === "string"
+        ? renderedHtml
+        : htmlBuilder.buildTailoredResumeHtml(draft, { jobTarget: jobTarget });
       result.artifactStage = "html_build";
     } catch (htmlBuildError) {
       throw toResultFailure(result, {
@@ -1308,7 +1310,83 @@
     }
   }
 
+  function hasCurrentResumeContent(resume) {
+    return isObject(resume) && Array.isArray(resume.sections) && resume.sections.some(function hasSection(section) {
+      return section && !section.waived && Array.isArray(section.blocks) && section.blocks.some(function hasEntry(entry) {
+        return entry && !entry.waived && Array.isArray(entry.lines) && entry.lines.some(function hasLine(line) {
+          return line && !line.waived && cleanString(line.text);
+        });
+      });
+    });
+  }
+
+  async function generateCurrentResume(request, options) {
+    var result = createBaseResult();
+    try {
+      var functions = global.ResumeAiFunctions;
+      var template = global.ResumeA4Template;
+      var resume = JSON.parse(JSON.stringify(request.currentResume));
+      var resolved = await resolveRuntimeSettings(request);
+      var config = resolveProviderRuntimeConfig(resolved.settings);
+      var jobBuilder = getJobTargetBuilder();
+      result.provider = config.provider;
+      result.model = config.model;
+      result.settingsSource = resolved.source;
+      result.jobTarget = jobBuilder.buildJobTarget(request.jobData || {});
+      result.jobTargetSource = "request.jobData";
+      result.candidateResume = resume;
+      result.candidateSource = "request.currentResume";
+      if (!hasJobTargetSignal(result.jobTarget)) {
+        return toResultFailure(result, { code: ERROR_CODES.MISSING_JOB_POSTING, message: "Job posting is missing. Please run extraction first." });
+      }
+      var editRequest = {
+        userMessage: [
+          "Tailor this application-specific resume copy to the job below using only the existing resume functions.",
+          "Keep the candidate's facts and contact details. Rephrase relevant existing lines without inventing achievements, employers, dates or qualifications.",
+          "Preserve sections and entries unless a small change is needed for this job. Do not modify the saved Profile or base resume.",
+          "JOB_TARGET:", safeJsonStringify(result.jobTarget, 2),
+          "User additional instructions:", normalizeCustomInstructions(resolved.settings.aiCustomInstructions) || "(none)"
+        ].join("\n"),
+        resumeSummary: functions.buildCompactResumeSummary(resume),
+        guidanceContext: result.jobTarget,
+        settings: resolved.settings
+      };
+      result.stage = STAGES.MODEL_REQUEST;
+      result.stageText = "Planning tailored resume edits";
+      var plan = await planResumeEdit(editRequest, options || {});
+      if (!plan.ok) return toResultFailure(result, { code: plan.code, message: plan.error });
+      var valid = functions.validateResumeFunctionBatch(plan.functionCalls, resume);
+      if (!valid.ok) return toResultFailure(result, { code: valid.code || "INVALID_RESUME_FUNCTIONS", message: valid.error });
+      if (plan.functionCalls.length) {
+        var check = await selfCheckFunctionCalls({ ...editRequest, functionCalls: plan.functionCalls }, options || {});
+        if (!check.approved) {
+          return toResultFailure(result, { code: "RESUME_SELF_CHECK_REJECTED", message: check.reason || "Resume edit self-check rejected the plan." });
+        }
+      }
+      var execution = functions.executeResumeFunctions(plan.functionCalls, resume);
+      if (!execution.ok) return toResultFailure(result, { code: execution.code || "RESUME_EXECUTION_FAILED", message: execution.error });
+      var draft = execution.resumeState;
+      result.tailoredResumeDraft = draft;
+      var html = template.renderA4Html({ resume: draft }, draft.language || request.activeResumeLanguage);
+      try {
+        var artifacts = await writeArtifacts(draft, result.jobTarget, result, html);
+        return toResultSuccess(artifacts, {
+          message: plan.functionCalls.length ? "Tailored resume artifacts generated." : "Resume artifacts generated; no edits were proposed.",
+          code: "TAILORED_RESUME_GENERATED",
+          responsePreview: buildResponsePreview(draft, artifacts, "[current_resume_function_calls]")
+        });
+      } catch (artifactFailure) {
+        return artifactFailure;
+      }
+    } catch (error) {
+      return toResultFailure(result, { message: getErrorMessage(error), code: ERROR_CODES.MODEL_REQUEST_FAILED });
+    }
+  }
+
   async function generateResume(request, options) {
+    if (isObject(request) && hasCurrentResumeContent(request.currentResume)) {
+      return generateCurrentResume(request, options);
+    }
     var result = createBaseResult();
     var req = isObject(request) ? request : {};
     var repairApplied = false;
