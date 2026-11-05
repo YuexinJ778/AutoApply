@@ -10,7 +10,7 @@ AI-assisted resume tailoring and application autofill, with a local Python job t
 
 ## Demo
 
-Main-flow recording pending: **Capture → Tailor → Autofill → Track**. See the [recording steps](docs/demo.md).
+Main-flow step GIF pending: **Capture → Tailor → Autofill → Track**. See the [capture steps](docs/demo.md).
 
 ## Why
 
@@ -152,7 +152,7 @@ Autofill support varies by website.
 
 Next steps:
 
-1. Record the complete capture → tailor → autofill → track flow with fictional data.
+1. Capture the complete capture → tailor → autofill → track flow as a step GIF with fictional data.
 2. Add a reproducible portal benchmark and paired manual/tool timing measurements.
 3. Design explicit extension/tracker data exchange and narrower on-demand host access.
 4. Build interview-preparation workflows; current preparation features are job guidance and notes.
