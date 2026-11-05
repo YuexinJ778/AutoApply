@@ -624,7 +624,7 @@
 
     while (current && current !== document.body && current !== document.documentElement) {
       const currentId = cleanString(current.id);
-      if (currentId) {
+      if (currentId && isUniqueSelector(current.tagName.toLowerCase() + "#" + escapeCssIdentifier(currentId))) {
         segments.unshift(current.tagName.toLowerCase() + "#" + escapeCssIdentifier(currentId));
         return segments.join(" > ");
       }
@@ -643,7 +643,7 @@
   function buildStableSelector(field) {
     const tag = field.tagName.toLowerCase();
     const id = cleanString(field.id);
-    if (id) {
+    if (id && isUniqueSelector(tag + "#" + escapeCssIdentifier(id))) {
       return tag + "#" + escapeCssIdentifier(id);
     }
 
@@ -1249,14 +1249,6 @@
   }
 
   function resolveFieldElement(field) {
-    const id = cleanString(field.id);
-    if (id) {
-      const byId = document.getElementById(id);
-      if (byId) {
-        return byId;
-      }
-    }
-
     const selector = cleanString(field.selector);
     if (selector) {
       try {
@@ -1266,6 +1258,14 @@
         }
       } catch {
         // ignore invalid selector
+      }
+    }
+
+    const id = cleanString(field.id);
+    if (id) {
+      const byId = document.getElementById(id);
+      if (byId) {
+        return byId;
       }
     }
 
@@ -1382,6 +1382,7 @@
           fieldId: field.id,
           fieldLabel: field.label,
           status: "filled",
+          fieldSelector: field.selector,
           value: mapping.mappedValue,
           valuePreview: toValuePreview(mapping.mappedValue)
         };
@@ -1520,6 +1521,7 @@
           fieldId: field.id,
           fieldLabel: field.label,
           status: "filled",
+          fieldSelector: field.selector,
           value: cleanString(selected.textContent) || selected.value,
           valuePreview: toValuePreview(cleanString(selected.textContent) || selected.value)
         };
@@ -1615,6 +1617,7 @@
           fieldId: field.id,
           fieldLabel: field.label,
           status: "filled",
+          fieldSelector: field.selector,
           value: shouldCheck ? "checked" : "unchecked",
           valuePreview: shouldCheck ? "checked" : "unchecked"
         };
@@ -2163,11 +2166,22 @@
     return "draft_prepared";
   }
 
+  function countAutofillStats(formFields, fillResults) {
+    const detected = new Set(formFields.map(function scannedSelector(field) {
+      return cleanString(field.selector);
+    }).filter(Boolean));
+    const filled = new Set(fillResults.filter(function successfulScannedFill(result) {
+      return result.status === "filled" && detected.has(result.fieldSelector);
+    }).map(function filledSelector(result) { return result.fieldSelector; }));
+    return { formFieldCount: detected.size, filledFieldCount: filled.size };
+  }
+
   function buildApplicationRecord(input) {
     const jobUrl = cleanString(input.jobUrl);
     const createdAt = new Date().toISOString();
     const uploadResult = input.uploadResult || {};
     const resumeRecord = input.resumeRecord || null;
+    const stats = countAutofillStats(input.formFields || [], input.fillResults || []);
 
     return {
       applicationId: deriveApplicationId(),
@@ -2182,10 +2196,8 @@
       sourceSite: cleanString(input.sourceSite) || "unknown",
       status: deriveStatus(input.fillResults || [], uploadResult, input.preSubmitCheck || {}),
       mode: PIPELINE_MODE,
-      formFieldCount: Array.isArray(input.formFields) ? input.formFields.length : 0,
-      filledFieldCount: Array.isArray(input.fillResults)
-        ? input.fillResults.filter(function filterFilled(item) { return item.status === "filled"; }).length
-        : 0,
+      formFieldCount: stats.formFieldCount,
+      filledFieldCount: stats.filledFieldCount,
       preSubmitCheck: input.preSubmitCheck || {
         ok: false,
         canSubmit: false,
@@ -2716,6 +2728,8 @@
   }
 
   global.Stage6ApplyRuntime = Object.freeze({
+    getFieldSelector: buildStableSelector,
+    countAutofillStats: countAutofillStats,
     runPrepareOnlyApplyFlow: runPrepareOnlyApplyFlow,
     runApplyDebug: runApplyDebug,
     dumpApplyDebugState: dumpApplyDebugState

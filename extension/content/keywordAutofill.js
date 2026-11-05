@@ -781,7 +781,7 @@
         id: cleanString(element.getAttribute("id")),
         ariaLabel: cleanString(element.getAttribute("aria-label")),
         required: Boolean(element.required || normalizeKeyword(element.getAttribute("aria-required")) === "true"),
-        selector: cleanString(element.id) ? "#" + cleanString(element.id) : "",
+        selector: global.Stage6ApplyRuntime.getFieldSelector(element),
         currentValue: getFieldCurrentValue(element),
         options: getSelectOptions(element)
       };
@@ -1086,6 +1086,7 @@
         fieldId: field.id || undefined,
         fieldLabel: field.label || undefined,
         status: "filled",
+        fieldSelector: field.selector,
         value: value,
         valuePreview: value.length > 48 ? value.slice(0, 45) + "..." : value,
         reason: cleanString(reason) || "STAGE8_MATCHED",

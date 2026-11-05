@@ -7,9 +7,17 @@
   const appDataStore = globalThis.Stage10AppDataStore;
   const dataBoundary = globalThis.Stage11DataBoundary;
   const resumeRegistryStore = globalThis.Stage6ResumeRegistryStorage;
+  const tracker = globalThis.AutoApplyTracker;
 
   const topTabsEl = document.getElementById("top-tabs");
   const statusLeftEl = document.getElementById("status-left");
+  const trackerStatusEl = document.getElementById("tracker-status");
+  const openTrackerDashboardBtn = document.getElementById("open-tracker-dashboard-btn");
+  const trackerUrlEl = document.getElementById("tracker-url");
+  const trackerTokenEl = document.getElementById("tracker-token");
+  const trackerSaveBtn = document.getElementById("tracker-save-btn");
+  const trackerTestBtn = document.getElementById("tracker-test-btn");
+  const trackerImportBtn = document.getElementById("tracker-import-btn");
 
   const dashboardStatTotalEl = document.getElementById("dashboard-stat-total");
   const dashboardStatSavedEl = document.getElementById("dashboard-stat-saved");
@@ -126,7 +134,7 @@
   const uploadResumeDoneBtn = document.getElementById("upload-resume-done-btn");
   const uploadResumeCloseBtn = document.getElementById("upload-resume-close-btn");
 
-  const VALID_TOP_LEVEL_TABS = new Set(["dashboard", "profile-resume", "test", "autofill", "applications", "notes", "settings"]);
+  const VALID_TOP_LEVEL_TABS = new Set(["dashboard", "profile-resume", "test", "autofill", "notes", "settings"]);
   const APPLICATION_STATUSES = Object.freeze(["Saved", "Applied", "Interview", "Offer", "Rejected", "Withdrawn"]);
   const LOCAL_RESUME_STORAGE_KEYS = Object.freeze(["resumeDrafts", "resumes", "localResumes", "generatedResumes"]);
   const COMPILED_RESUME_REGISTRY_KEY = "compiledResumeRegistry";
@@ -178,6 +186,7 @@
     },
     currentJob: null,
     settings: {},
+    trackerSettings: { url: "http://127.0.0.1:8765", token: "" },
     editingAutofillId: "",
     applicationResumeEditor: null,
     editorMode: "ai",
@@ -1105,6 +1114,21 @@
     }
   }
 
+  function setTrackerStatus(text) {
+    if (trackerStatusEl) {
+      trackerStatusEl.textContent = cleanString(text);
+      trackerStatusEl.hidden = !trackerStatusEl.textContent;
+    }
+  }
+
+  async function openTrackerDashboard() {
+    try {
+      await tracker.openDashboard();
+    } catch (error) {
+      setTrackerStatus(error instanceof Error ? error.message : String(error));
+    }
+  }
+
   function parseTabFromHash() {
     const hashRaw = cleanString(globalThis.location && globalThis.location.hash);
     if (!hashRaw) {
@@ -1120,7 +1144,7 @@
       decoded = cleanString(token).toLowerCase();
     }
 
-    return VALID_TOP_LEVEL_TABS.has(decoded) ? decoded : "";
+    return decoded === "applications" || VALID_TOP_LEVEL_TABS.has(decoded) ? decoded : "";
   }
 
   function syncHashWithTab(tabKey) {
@@ -1146,6 +1170,11 @@
 
   function setActiveTab(tabKey) {
     const nextTab = cleanString(tabKey).toLowerCase();
+    if (nextTab === "applications") {
+      setActiveTab("dashboard");
+      void openTrackerDashboard();
+      return;
+    }
     const safeTab = VALID_TOP_LEVEL_TABS.has(nextTab) ? nextTab : "dashboard";
     const previousTab = state.activeTab;
     const previousAiContext = cleanString(state.aiChat && state.aiChat.contextKey);
@@ -4089,15 +4118,7 @@
   }
 
   function openApplicationFromGlobalNotes(applicationId) {
-    const targetId = cleanString(applicationId);
-    if (!targetId) return;
-    state.applicationResumeEditor = null;
-    state.focusedApplicationId = targetId;
-    if (applicationsSearchEl) applicationsSearchEl.value = "";
-    if (applicationsFilterEl) applicationsFilterEl.value = "all";
-    setActiveTab("applications");
-    renderApplications();
-    setStatus("Application selected.");
+    if (cleanString(applicationId)) void openTrackerDashboard();
   }
 
   function handleGlobalNotesClick(event) {
@@ -6239,6 +6260,8 @@
     if (settingsBaseUrlEl) {
       settingsBaseUrlEl.value = resolved.baseUrl;
     }
+    if (trackerUrlEl) trackerUrlEl.value = state.trackerSettings.url;
+    if (trackerTokenEl) trackerTokenEl.value = state.trackerSettings.token;
   }
 
   function getResumeLanguage() {
@@ -6772,6 +6795,11 @@
 
     const filledCount = Number(data.filledFieldCount || 0) + Number(data.selectFilledCount || 0) + Number(data.checkboxFilledCount || 0);
     setStatus("AutoFill completed. Filled=" + String(filledCount));
+    if (data.trackerError) {
+      setTrackerStatus(data.trackerError);
+    } else if (data.trackerJob) {
+      setTrackerStatus("Autofill coverage saved in Tracker.");
+    }
   }
 
   async function getCanonicalDataForMutation() {
@@ -7841,6 +7869,69 @@
     };
 
     return nextSettings;
+  }
+
+  async function saveTrackerSettingsFromForm() {
+    state.trackerSettings = await tracker.saveSettings({
+      url: cleanString(trackerUrlEl && trackerUrlEl.value),
+      token: cleanString(trackerTokenEl && trackerTokenEl.value)
+    });
+    setTrackerStatus("Tracker settings saved.");
+  }
+
+  async function testTrackerConnectionFromForm() {
+    trackerTestBtn.disabled = true;
+    try {
+      await saveTrackerSettingsFromForm();
+      await tracker.testConnection();
+      setTrackerStatus("Tracker connection successful.");
+    } catch (error) {
+      setTrackerStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      trackerTestBtn.disabled = false;
+    }
+  }
+
+  function mergeTrackerImportRecords(applications, legacyRecords) {
+    const merged = applications.map((application) => ({ ...application }));
+    legacyRecords.forEach((record) => {
+      const id = cleanString(record.applicationId || record.id);
+      const url = cleanString(record.jobUrl || record.url);
+      const index = merged.findIndex((application) =>
+        (id && cleanString(application.applicationId || application.id) === id) ||
+        (url && cleanString(application.jobUrl || application.url) === url)
+      );
+      if (index < 0) {
+        merged.push(record);
+      } else if (!Object.prototype.hasOwnProperty.call(merged[index], "formFieldCount")) {
+        const application = merged[index];
+        merged[index] = { ...record, ...application,
+          company: cleanString(application.company) || record.company,
+          jobTitle: cleanString(application.jobTitle || application.role) || record.jobTitle || record.role,
+          jobUrl: cleanString(application.jobUrl || application.url) || record.jobUrl,
+          notes: Array.isArray(application.notes) && application.notes.length ? application.notes : record.notes || application.notes,
+          formFieldCount: record.formFieldCount,
+          filledFieldCount: record.filledFieldCount
+        };
+      }
+    });
+    return merged;
+  }
+
+  async function importExistingApplicationsToTracker() {
+    trackerImportBtn.disabled = true;
+    try {
+      await saveTrackerSettingsFromForm();
+      const canonical = await getCanonicalDataForMutation();
+      const legacyRecords = await globalThis.Stage6ApplicationStore.listApplicationRecords();
+      const records = mergeTrackerImportRecords(canonical.applications || [], legacyRecords);
+      const imported = await tracker.importJobs(records);
+      setTrackerStatus("Imported " + String(imported.length) + " applications into Tracker. Existing Tracker records were preserved.");
+    } catch (error) {
+      setTrackerStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      trackerImportBtn.disabled = false;
+    }
   }
 
   async function saveSettingsFromForm() {
@@ -9731,6 +9822,22 @@
   // ────────────────────────────────────────────────────────────────────────────
 
   function bindEvents() {
+    if (openTrackerDashboardBtn) {
+      openTrackerDashboardBtn.addEventListener("click", () => { void openTrackerDashboard(); });
+    }
+    if (trackerSaveBtn) {
+      trackerSaveBtn.addEventListener("click", () => {
+        void saveTrackerSettingsFromForm().catch((error) => {
+          setTrackerStatus(error instanceof Error ? error.message : String(error));
+        });
+      });
+    }
+    if (trackerTestBtn) {
+      trackerTestBtn.addEventListener("click", () => { void testTrackerConnectionFromForm(); });
+    }
+    if (trackerImportBtn) {
+      trackerImportBtn.addEventListener("click", () => { void importExistingApplicationsToTracker(); });
+    }
     if (topTabsEl) {
       topTabsEl.addEventListener("click", (event) => {
         const target = event.target;
@@ -10048,8 +10155,9 @@
           state.guidanceLoading = false;
           state.guidanceError = "";
           state.guidanceCollapsed = false;
-          setActiveTab("applications");
+          setActiveTab("profile-resume");
           renderAll();
+          await openTrackerDashboard();
         })().catch((error) => {
           setStatus(error instanceof Error ? error.message : String(error));
         });
@@ -10466,6 +10574,7 @@
     state.activeTab = parseTabFromHash() || "dashboard";
 
     await refreshStateFromStorage();
+    state.trackerSettings = await tracker.getSettings();
     await loadNotesAiMessages();
     bindEvents();
     startResumeAutosaveInterval();

@@ -35,11 +35,13 @@
         <button id="autofill-btn" type="button" class="primary-btn">AutoFill Form</button>
         <button id="save-job-btn" type="button" class="primary-btn">Save Job</button>
         <button id="applications-btn" type="button" class="primary-btn">Applications</button>
+        <button id="confirm-submitted-btn" type="button" class="primary-btn" disabled>I have submitted（我已送出）</button>
       </section>
 
       <section class="runtime-info">
         <p id="runtime-model">Model: -</p>
         <p id="runtime-status">Status: Ready</p>
+        <p id="tracker-status" role="status">Tracker: Save a job or start an application to track it.</p>
       </section>
     </main>
 
@@ -70,6 +72,7 @@
     <script src="../storage/resumeRegistryStore.js"></script>
     <script src="../storage/appDataStore.js"></script>
     <script src="../lib/dataBoundary.js"></script>
+    <script src="../lib/trackerClient.js"></script>
     <script src="popup.js"></script>
   </body>
 </html>

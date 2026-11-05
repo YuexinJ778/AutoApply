@@ -8,6 +8,7 @@
   const appDataStore = globalThis.Stage10AppDataStore;
   const resumeRegistryStore = globalThis.Stage6ResumeRegistryStorage;
   const dataBoundary = globalThis.Stage11DataBoundary;
+  const tracker = globalThis.AutoApplyTracker;
 
   const CONSOLE_PAGE_PATH = "options/options.html";
   const PENDING_APPLY_STORAGE_KEY = "pendingApply";
@@ -17,6 +18,8 @@
   const autofillButton = document.getElementById("autofill-btn");
   const saveJobButton = document.getElementById("save-job-btn");
   const applicationsButton = document.getElementById("applications-btn");
+  const confirmSubmittedButton = document.getElementById("confirm-submitted-btn");
+  const trackerStatusEl = document.getElementById("tracker-status");
   const openConsoleButton = document.getElementById("open-console-btn");
   const jobSummaryTitleEl = document.getElementById("job-summary-title");
   const jobSummarySubtitleEl = document.getElementById("job-summary-subtitle");
@@ -35,7 +38,8 @@
     currentJobRaw: null,
     isStartApplyRunning: false,
     activeTabId: null,
-    activeTabUrl: ""
+    activeTabUrl: "",
+    trackerJob: null
   };
 
   function cleanString(value) {
@@ -75,11 +79,98 @@
     if (autofillButton) autofillButton.disabled = state.busy;
     if (saveJobButton) saveJobButton.disabled = state.busy;
     if (applicationsButton) applicationsButton.disabled = state.busy;
+    if (confirmSubmittedButton) confirmSubmittedButton.disabled = state.busy || !state.trackerJob;
   }
 
   function setStatus(text) {
     if (runtimeStatusEl) {
       runtimeStatusEl.textContent = "Status: " + cleanString(text);
+    }
+  }
+
+  function setTrackerStatus(text) {
+    if (trackerStatusEl) trackerStatusEl.textContent = "Tracker: " + cleanString(text);
+  }
+
+  function showTrackerJob(job) {
+    state.trackerJob = job;
+    setTrackerStatus([job.company, job.job_title, job.status_id].filter(Boolean).join(" · "));
+    if (confirmSubmittedButton) confirmSubmittedButton.disabled = state.busy;
+  }
+
+  async function trackCurrentJob(job) {
+    state.trackerJob = null;
+    if (confirmSubmittedButton) confirmSubmittedButton.disabled = true;
+    try {
+      const saved = await tracker.createJob({
+        company: cleanString(job.company),
+        job_title: cleanString(job.title || job.jobTitle || job.role),
+        job_url: cleanString(job.url || job.jobUrl),
+        location: cleanString(job.location)
+      });
+      showTrackerJob(saved);
+      return saved;
+    } catch (error) {
+      setTrackerStatus(error instanceof Error ? error.message : String(error));
+      return null;
+    }
+  }
+
+  async function refreshTrackerJob(url) {
+    state.trackerJob = null;
+    if (confirmSubmittedButton) confirmSubmittedButton.disabled = true;
+    if (!url) return;
+    try {
+      const jobs = await tracker.getJobs(url);
+      if (jobs.length) showTrackerJob(jobs[0]);
+      else setTrackerStatus("This job has not been saved. Use Save Job or Start Apply.");
+    } catch (error) {
+      setTrackerStatus(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function uploadGeneratedPdf(job, generated) {
+    if (!job) return;
+    try {
+      if (!generated.pdfPath) {
+        setTrackerStatus("No PDF was generated; there is no resume version to upload.");
+        return;
+      }
+      const artifact = await getLocalStorageValue(generated.pdfPath);
+      const base64 = cleanString(artifact && (artifact.dataBase64 || artifact.content));
+      if (!base64) throw new Error("Generated PDF could not be read for Tracker upload.");
+      const bytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+      const fileName = cleanString(artifact.fileName || artifact.filename) || "tailored_resume.pdf";
+      await tracker.uploadResume(job.id, new Blob([bytes], { type: "application/pdf" }), fileName, "Tailored resume");
+      setTrackerStatus("Tailored PDF saved for " + [job.company, job.job_title].filter(Boolean).join(" · "));
+    } catch (error) {
+      setTrackerStatus(error instanceof Error ? error.message : String(error));
+    }
+  }
+
+  async function confirmSubmitted() {
+    const job = state.trackerJob;
+    if (!job) return;
+    setBusy(true);
+    try {
+      const now = new Date();
+      const appliedDate = [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
+      const updated = await tracker.patchJob(job.id, { status_id: "applied", applied_date: appliedDate });
+      const pending = await getPendingApplyState();
+      if (pending && (pending.trackerJobId === job.id || urlsMatch(pending.trackerJobUrl || pending.jobUrl, job.job_url))) {
+        await new Promise((resolve, reject) => {
+          chrome.storage.local.remove(PENDING_APPLY_STORAGE_KEY, () => {
+            if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+            else resolve();
+          });
+        });
+      }
+      showTrackerJob(updated);
+      setTrackerStatus("Confirmed submitted: " + [updated.company, updated.job_title, appliedDate].filter(Boolean).join(" · "));
+    } catch (error) {
+      setTrackerStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -758,9 +849,21 @@
       jobId: cleanString(raw.jobId),
       resumeDraftId: cleanString(raw.resumeDraftId),
       jobUrl: cleanString(raw.jobUrl),
+      trackerJobUrl: cleanString(raw.trackerJobUrl || raw.jobUrl),
+      trackerCompany: cleanString(raw.trackerCompany),
+      trackerJobTitle: cleanString(raw.trackerJobTitle),
+      trackerJobId: cleanString(raw.trackerJobId),
+      sourceTabId: Number.isInteger(raw.sourceTabId) ? raw.sourceTabId : null,
       createdAt: cleanString(raw.createdAt),
       status: cleanString(raw.status)
     };
+  }
+
+  async function getPendingApplyForTab(tab) {
+    const pending = await getPendingApplyState();
+    return pending && pending.sourceTabId !== null &&
+      (tab.id === pending.sourceTabId || tab.openerTabId === pending.sourceTabId)
+      ? pending : null;
   }
 
   async function setPendingApplyState(input) {
@@ -769,6 +872,11 @@
       jobId: cleanString(safe.jobId),
       resumeDraftId: cleanString(safe.resumeDraftId),
       jobUrl: cleanString(safe.jobUrl),
+      trackerJobUrl: cleanString(safe.trackerJobUrl || safe.jobUrl),
+      trackerCompany: cleanString(safe.trackerCompany),
+      trackerJobTitle: cleanString(safe.trackerJobTitle),
+      trackerJobId: cleanString(safe.trackerJobId),
+      sourceTabId: Number.isInteger(safe.sourceTabId) ? safe.sourceTabId : null,
       createdAt: cleanString(safe.createdAt) || new Date().toISOString(),
       status: cleanString(safe.status) || "waiting_for_user_to_open_application_form"
     };
@@ -1041,8 +1149,15 @@
         setStatus("Running autofill...");
       }
 
-      const pendingApplyState = await getPendingApplyState();
-      const response = await sendMessageToTab(activeTab.id, { type: shared.MESSAGE_TYPES.PREPARE_APPLICATION });
+      const pendingApplyState = await getPendingApplyForTab(activeTab);
+      const trackerJob = isCurrentJobValid(state.currentJob)
+        ? { company: cleanString(state.currentJob.company), job_title: cleanString(state.currentJob.title),
+            job_url: cleanString(state.currentJob.url), location: cleanString(state.currentJob.location) }
+        : pendingApplyState && pendingApplyState.trackerJobUrl
+          ? { company: pendingApplyState.trackerCompany, job_title: pendingApplyState.trackerJobTitle,
+              job_url: pendingApplyState.trackerJobUrl }
+          : null;
+      const response = await sendMessageToTab(activeTab.id, { type: shared.MESSAGE_TYPES.PREPARE_APPLICATION, trackerJob: trackerJob });
       if (!response || response.ok !== true) {
         if (trigger === "auto") {
           setApplicationFormSummaryState("AutoFill incomplete");
@@ -1056,6 +1171,8 @@
       }
 
       const resultData = response.data && typeof response.data === "object" ? response.data : {};
+      if (resultData.trackerJob) showTrackerJob(resultData.trackerJob);
+      if (resultData.trackerError) setTrackerStatus(resultData.trackerError);
       if (appDataStore && typeof appDataStore.upsertApplication === "function") {
         const appRecord = toApplicationRecordFromAutofill(resultData, {
           currentJob: state.currentJob,
@@ -1211,6 +1328,8 @@
         setDetectedJobSummaryState(currentJob, "Starting application...");
       }
 
+      const trackerJob = isCurrentJobValid(currentJob) ? await trackCurrentJob(currentJob) : null;
+
       const canonicalData = await getCanonicalData();
       const storageSettings = storage && typeof storage.getSettings === "function" ? await storage.getSettings() : {};
       const settings = buildGuardSettings(canonicalData, storageSettings);
@@ -1255,11 +1374,18 @@
         return;
       }
 
+      await uploadGeneratedPdf(trackerJob, generated);
+
       setDetectedJobSummaryState(currentJob, "Resume saved internally");
       const pendingApply = {
         jobId: cleanString(currentJob.jobId || jobData.jobId),
         resumeDraftId: cleanString(resumeDraftRecord && resumeDraftRecord.resumeDraftId),
         jobUrl: cleanString(currentJob.url || jobData.jobUrl || jobData.url),
+        trackerJobUrl: cleanString(currentJob.url || jobData.jobUrl || jobData.url),
+        trackerCompany: cleanString(currentJob.company || jobData.company),
+        trackerJobTitle: cleanString(currentJob.title || jobData.title || jobData.role),
+        trackerJobId: cleanString(trackerJob && trackerJob.id),
+        sourceTabId: state.activeTabId,
         createdAt: new Date().toISOString(),
         status: "waiting_for_user_to_open_application_form"
       };
@@ -1343,6 +1469,8 @@
         showMissingCurrentJobForSave();
         return;
       }
+
+      await trackCurrentJob(currentJob);
 
       const canonical = await getCanonicalData();
       let normalizedJob = dataBoundary && typeof dataBoundary.normalizeJob === "function"
@@ -1555,8 +1683,12 @@
 
   if (applicationsButton) {
     applicationsButton.addEventListener("click", () => {
-      openConsolePage("applications");
+      void tracker.openDashboard().catch((error) => setTrackerStatus(error.message));
     });
+  }
+
+  if (confirmSubmittedButton) {
+    confirmSubmittedButton.addEventListener("click", () => { void confirmSubmitted(); });
   }
 
   if (openConsoleButton) {
@@ -1596,7 +1728,8 @@
 
       const applicationFormDetection = await detectApplicationFormOnTab(activeTab.id);
       if (applicationFormDetection.opened) {
-        const pendingApply = await getPendingApplyState();
+        const pendingApply = await getPendingApplyForTab(activeTab);
+        await refreshTrackerJob(cleanString(pendingApply && pendingApply.jobUrl));
         const hasPendingResume = pendingApply && pendingApply.status === "waiting_for_user_to_open_application_form";
         setApplicationFormSummaryState(hasPendingResume ? "Resume ready for AutoFill" : "Detected on this page");
         await handleAutofill({ trigger: "auto", activeTab: activeTab });
@@ -1604,6 +1737,7 @@
       }
 
       await syncCurrentJobFromPage({ showExtractStatus: true });
+      await refreshTrackerJob(cleanString(state.currentJob && state.currentJob.url));
     } catch (error) {
       setNoJobSummaryState();
       setStatus(error instanceof Error ? error.message : String(error));

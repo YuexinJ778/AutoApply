@@ -1,6 +1,6 @@
 # Architecture
 
-AutoApply contains a Chrome extension and a separate local Streamlit job tracker. M1 adds a local FastAPI in the Streamlit process, sharing the tracker storage and its process lock. The extension will connect in M2; its existing storage is still active at this milestone. See the [API contract](local-api.md).
+AutoApply connects its Chrome extension to FastAPI in the local Streamlit process, sharing the tracker storage and its process lock. Capture, tailored PDFs, autofill coverage and explicit submission confirmation use this API. Legacy local application/notes cleanup follows in M3. See the [API contract](local-api.md) and [extension tracking](tracker-extension.md).
 
 ## Chrome extension
 
@@ -9,8 +9,8 @@ The browser loads the JavaScript listed in the [manifest](../extension/manifest.
 | Entry point | Responsibility |
 | --- | --- |
 | [Popup](../extension/popup/popup.html) and [controller](../extension/popup/popup.js) | Start job capture, resume preparation, and application autofill from the active tab. |
-| [Console](../extension/options/options.html) and [controller](../extension/options/options.js) | Edit profiles and resumes, configure providers, and manage applications and notes. |
-| [Background service worker](../extension/background/background.js) | Route extension messages, request page content, parse job details, and inject extraction scripts when needed. |
+| [Console](../extension/options/options.html) and [controller](../extension/options/options.js) | Edit profiles and resumes, configure providers/tracker access, import legacy applications, and open the tracker dashboard. Legacy notes remain until M3. |
+| [Background service worker](../extension/background/background.js) | Route extension messages and content-script tracker requests, request page content, parse job details, and inject extraction scripts when needed. |
 | [Page content script](../extension/content/content.js) | Read page content and handle commands sent to the job tab. |
 | [Application pipeline](../extension/content/applyPipeline.js) | Scan fields, map profile values, attach resume files, and check readiness without submitting the application. |
 | [Keyword autofill](../extension/content/keywordAutofill.js) | Match saved field knowledge, request review for unresolved fields, and persist confirmed mappings. |
@@ -42,7 +42,7 @@ The same pipeline performs filling and validation after matching. It records HSB
 
 ## Local job tracker
 
-The [Streamlit app](../server/app.py) manages a separate set of jobs, companies, resume files, attachments, notes, and reminders. [Storage](../server/storage.py) writes beneath the job tracker's own directory, independent of the shell's current directory:
+The [Streamlit app](../server/app.py) manages the jobs, companies, resume files, attachments, notes and reminders used by the tracker API. [Storage](../server/storage.py) writes beneath the job tracker's own directory, independent of the shell's current directory:
 
 - `data/` stores JSON and CSV records and settings.
 - `applications/` stores per-job resume files, attachments, notes, and reminders.

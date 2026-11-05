@@ -16,8 +16,9 @@ All data routes require `Authorization: Bearer <token>`. Only
 `GET /api/health` is public and returns `{ "ok": true, "version": "0.1.0" }`.
 API responses omit saved `account` and `password` fields. The API has no CORS or
 Host middleware and adds no upload size limit; storage performs PDF validation.
-M2's client must run in background, popup, or options. A content script must
-send a runtime message to background for tracker operations.
+The extension client runs in background, popup, or options. A content script
+sends a runtime message to background for tracker operations. See
+[extension setup and validation](tracker-extension.md).
 
 ## Contract
 
@@ -34,8 +35,8 @@ send a runtime message to background for tracker operations.
 Use server status **IDs**, such as `planning`, `applied`, and `interviewing`.
 Dates use `YYYY-MM-DD`. Autofill statistics are
 `{ "filled": 9, "detected": 10, "recorded_at": "2026-11-05T17:00:00Z" }`.
-Recording autofill statistics does not change status. Submission confirmation
-will be wired to a user action in M2.
+Recording autofill statistics does not change status. The popup records
+submission only when the user clicks **I have submitted（我已送出）**.
 
 URL identity ignores fragments, default ports, trailing slashes, and known
 tracking query parameters; meaningful job identifiers remain. Repeated imports

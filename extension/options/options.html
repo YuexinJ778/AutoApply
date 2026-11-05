@@ -20,10 +20,11 @@
         <button class="tab-btn" data-tab="profile-resume">Profile</button>
         <button class="tab-btn" data-tab="test">Test</button>
         <button class="tab-btn" data-tab="autofill">AutoFill Answers</button>
-        <button class="tab-btn" data-tab="applications">Applications</button>
+        <button id="open-tracker-dashboard-btn" class="tab-btn" type="button">Applications ↗ Tracker Dashboard</button>
         <button class="tab-btn" data-tab="notes">Notes</button>
         <button class="tab-btn" data-tab="settings">Settings</button>
       </nav>
+      <p id="tracker-status" class="helper-text" role="status" hidden></p>
 
       <section id="view-dashboard" class="view-section">
         <h2>Dashboard</h2>
@@ -68,7 +69,7 @@
 
         <div id="app-mode-top-bar" class="app-mode-top-bar" hidden>
           <div class="app-mode-btn-row">
-            <button id="back-to-applications-btn" type="button" class="secondary-btn small-btn">Back to Applications</button>
+            <button id="back-to-applications-btn" type="button" class="secondary-btn small-btn">Open Tracker Dashboard</button>
             <button id="save-app-resume-top-btn" type="button" class="primary-btn small-btn">Save</button>
           </div>
         </div>
@@ -223,49 +224,6 @@
         </article>
       </section>
 
-      <section id="view-applications" class="view-section hidden">
-        <h2>Applications</h2>
-        <div class="toolbar-row applications-toolbar">
-          <label>Search
-            <input id="applications-search" type="text" placeholder="Search company, title, or location" />
-          </label>
-          <label>Status Filter
-            <select id="applications-filter">
-              <option value="all">All</option>
-              <option value="Saved">Saved</option>
-              <option value="Applied">Applied</option>
-              <option value="Interview">Interview</option>
-              <option value="Offer">Offer</option>
-              <option value="Rejected">Rejected</option>
-              <option value="Withdrawn">Withdrawn</option>
-            </select>
-          </label>
-          <label>Sort by date
-            <select id="applications-sort">
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="applications-table-wrap">
-          <table class="applications-table">
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>Job Title</th>
-                <th>Status</th>
-                <th>Location</th>
-                <th>Saved Date</th>
-                <th>Applied Date</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="applications-table-body"></tbody>
-          </table>
-        </div>
-      </section>
-
       <section id="view-notes" class="view-section hidden">
         <div class="notes-page-header">
           <div>
@@ -316,6 +274,17 @@
 
       <section id="view-settings" class="view-section hidden">
         <h2>Settings</h2>
+        <article class="card">
+          <h3>Local Tracker</h3>
+          <label>Tracker URL<input id="tracker-url" type="url" value="http://127.0.0.1:8765" /></label>
+          <label>Tracker token<input id="tracker-token" type="password" autocomplete="off" placeholder="Copy from dashboard Settings → Local API" /></label>
+          <p class="settings-card-description">Start the local service and open its dashboard before connecting. Copy the token from Settings → Local API.</p>
+          <div class="button-row">
+            <button id="tracker-save-btn" type="button" class="primary-btn">Save Tracker Settings</button>
+            <button id="tracker-test-btn" type="button" class="secondary-btn">Test tracker connection</button>
+            <button id="tracker-import-btn" type="button" class="secondary-btn">Import existing applications into Tracker</button>
+          </div>
+        </article>
         <article class="card">
           <h3>Model Settings</h3>
           <label>Provider
@@ -522,9 +491,11 @@
     <script src="../lib/api.js"></script>
     <script src="../storage/localStore.js"></script>
     <script src="../storage/appDataStore.js"></script>
+    <script src="../storage/applicationStore.js"></script>
     <script src="../storage/resumeRegistryStore.js"></script>
     <script src="../lib/dataBoundary.js"></script>
     <script src="resumeFunctions.js"></script>
+    <script src="../lib/trackerClient.js"></script>
     <script src="options.js"></script>
   </body>
 </html>

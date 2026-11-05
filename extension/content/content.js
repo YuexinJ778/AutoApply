@@ -140,6 +140,26 @@ function resolveApplyRuntime() {
   return null;
 }
 
+async function recordTrackerAutofill(result, explicitJob) {
+  const record = result.pendingApplicationRecord;
+  if (!record || record.formFieldCount <= 0) return;
+  const job = explicitJob || {
+    company: record.company,
+    job_title: record.role,
+    job_url: record.jobUrl
+  };
+  const response = await chrome.runtime.sendMessage({
+    type: "TRACKER_AUTOFILL", job: job, hasExplicitJob: Boolean(explicitJob),
+    filledFieldCount: record.filledFieldCount,
+    formFieldCount: record.formFieldCount,
+    recordedAt: new Date().toISOString()
+  });
+  if (!response || !response.ok) {
+    throw new Error(response && response.error || "Tracker did not respond.");
+  }
+  result.trackerJob = response.data.job;
+}
+
 const APPLY_SKIP_TEXT = /\b(submit|submit application|send application|send|finish|complete application|final submit|sign in|sign up|log in|register|cancel|close|back|next|previous|save draft)\b/i;
 const APPLY_CLICKABLE_SELECTOR = "a, button, [role=\"button\"], [role=\"link\"], input[type=\"submit\"], input[type=\"button\"], [data-test-id=\"apply-button\"]";
 const APPLY_PRIORITY_SELECTORS = [
@@ -640,6 +660,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const result = await applyRuntime.runPrepareOnlyApplyFlow();
+        try {
+          await recordTrackerAutofill(result, message.trackerJob);
+        } catch (trackerError) {
+          result.trackerError = trackerError.message;
+        }
         sendResponse(ok(result));
       } catch (error) {
         console.error("[content] prepare application failed", error);

@@ -1,4 +1,4 @@
-importScripts("../lib/types.js", "../lib/jobParser.js", "../storage/localStore.js");
+importScripts("../lib/types.js", "../lib/jobParser.js", "../storage/localStore.js", "../lib/trackerClient.js");
 
 const shared = globalThis.Stage3Shared;
 const parser = globalThis.Stage4JobParser;
@@ -175,6 +175,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message?.type === MESSAGE_TYPES.PING) {
     sendResponse(ok({ message: "background alive", parserLoaded: !!parser }));
     return;
+  }
+
+  if (message?.type === "TRACKER_AUTOFILL") {
+    (async () => {
+      try {
+        if (!(message.formFieldCount > 0)) {
+          sendResponse(ok({ job: null, skipped: true }));
+          return;
+        }
+        const tracker = globalThis.AutoApplyTracker;
+        const { pendingApply: pending } = await chrome.storage.local.get("pendingApply");
+        const sourceTabId = pending && pending.sourceTabId;
+        const relatedTab = Number.isInteger(sourceTabId) &&
+          (sender.tab?.id === sourceTabId || sender.tab?.openerTabId === sourceTabId);
+        const jobInput = relatedTab && !message.hasExplicitJob ? {
+          company: pending.trackerCompany,
+          job_title: pending.trackerJobTitle,
+          job_url: pending.trackerJobUrl || pending.jobUrl
+        } : message.job;
+        const job = await tracker.createJob(jobInput);
+        const updated = await tracker.patchJob(job.id, {
+          autofill_stats: {
+            filled: message.filledFieldCount,
+            detected: message.formFieldCount,
+            recorded_at: message.recordedAt || new Date().toISOString()
+          }
+        });
+        sendResponse(ok({ job: updated }));
+      } catch (error) {
+        sendResponse(fail(getErrorMessage(error), "TRACKER_ERROR"));
+      }
+    })();
+    return true;
   }
 
   if (message?.type !== MESSAGE_TYPES.EXTRACT_CURRENT_PAGE) {
