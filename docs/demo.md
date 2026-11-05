@@ -1,20 +1,17 @@
-# Demo recording
+# Record the main workflow
 
-The README GIF shows the actual extension Console with fictional profile and application data, recorded model responses, and the production A4 HTML renderer.
+Record one real Chrome run to produce the demo and verify Quick start.
 
-The clip focuses on the resume assistant, preview updates, and application tracking. It is a UI replay, not evidence of live provider quality/latency or a complete portal capture/autofill run. The full job-portal workflow remains a separate recording task.
+1. Create a fresh Chrome profile, load `extension/` with **Load unpacked**, and follow the README Quick start. Enter a fictional Demo Applicant profile and your MiniMax key; save settings and run **Test Connection** before recording.
+2. Close unrelated tabs and notifications. Use a fixed window size and 100% browser zoom. Record only: **public job posting → Start Apply → tailored resume → application form autofill → Console Applications**. Keep the API-key settings page out of the recording and stop before final submission.
+3. Use QuickTime or macOS screen recording to capture 25–35 seconds of the actual workflow. Save the recording as a `.mov` file.
+4. Convert it to `docs/assets/demo.gif` with ffmpeg:
 
-## Recording inputs
+```bash
+mkdir -p docs/assets
+ffmpeg -i demo.mov -vf "fps=12,scale=1280:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" docs/assets/demo.gif
+```
 
-- Name: Demo Applicant; contact details use `example.com` and a fictional `555-01xx` phone number.
-- Employer and school: Example Labs and Example University.
-- Prompt facts: a Python workflow project, validated JSON inputs, isolated tests, and recovery from failed writes.
-- The recorded plan uses four allowed operations: one `addEntry` and three `addLine` calls. The unchanged local validator/executor applies the plan.
+Keep the GIF under 10 MB. If necessary, reduce width to 960, then frame rate to 10. Once the recording is checked, embed it in the README Demo section with the caption **Fictional profile**.
 
-## Runtime adapters
-
-An isolated localhost preview loads the Console's production JavaScript and styles. A temporary browser-storage adapter supplies the fictional fixtures. Network requests to the demo provider endpoint return a recorded plan and self-check result; no provider key or external provider request is used.
-
-The recording browser does not display inline PDF blobs, so its preview adapter displays the HTML produced by `ResumeA4Template.renderA4Html`. Production extension code and PDF-export behavior are unchanged. The visible recording banner identifies the replay, fictional data, recorded response, and HTML preview.
-
-The GIF's playback duration is presentation timing, not a measured application or model response time. No actual application history or account settings were recorded.
+Record the date, Chrome/extension version, platform and posting, and whether every Quick start step succeeded. If a step fails, retain the error and fix it before marking the run complete.
