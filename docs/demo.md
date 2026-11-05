@@ -24,5 +24,12 @@ The application remains in **Saved** status. The resume is edited manually in th
 
 - [Step GIF](assets/demo.gif): 5 screenshots, 6 seconds per step, 30 seconds total, 1280 × 900 pixels.
 - [Console and profile](assets/console.png), [resume editor and A4 preview](assets/resume-editor.png), and [application tracking](assets/applications.png): 1600 pixels wide.
+- [Social preview](assets/social-preview.png): 1280 × 640 PNG, using the real Console resume editor and A4 preview.
 
 The screenshots are cropped to the product or form content. They retain the real interface and contain fictional contact details and resume content.
+
+## GitHub social preview
+
+The repository owner can upload `docs/assets/social-preview.png` through **Settings → General → Social preview → Edit → Upload an image**.
+
+The optional 2–3 minute walkthrough will add live AI resume editing and interview preparation when those flows are ready to record.
