@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+from concurrent.futures import ThreadPoolExecutor
 import subprocess
 import tempfile
+from threading import Event
 import unittest
 import uuid
 from pathlib import Path
@@ -115,7 +117,7 @@ class ResumeWorkspaceTests(unittest.TestCase):
                 "-halt-on-error",
                 "-no-shell-escape",
                 output_arguments[0],
-                "resume.tex",
+                str(Path(output_arguments[0].split("=", 1)[1]) / "resume.tex"),
             ],
         )
 
@@ -226,6 +228,64 @@ class ResumeWorkspaceTests(unittest.TestCase):
         self.assertEqual(storage.load_compiled_preview(self.job_id), self.PDF_ONE)
         log = storage.load_compile_log(self.job_id).lower()
         self.assertTrue("timeout" in log or "timed out" in log)
+
+    def test_jobs_remain_readable_and_writable_while_pdflatex_runs(self) -> None:
+        entered, release = Event(), Event()
+        compile_pdf = self.successful_pdflatex(self.PDF_ONE)
+
+        def paused_compile(command, **kwargs):
+            entered.set()
+            self.assertTrue(release.wait(timeout=10))
+            self.assertEqual(Path(command[-1]).read_text(encoding="utf-8"), "source")
+            return compile_pdf(command, **kwargs)
+
+        def edit_job():
+            self.assertEqual(storage.get_job_by_id(self.job_id)["company"], "Example Company")
+            storage.save_text_file(storage.get_job_directory(self.job_id) / "resume.tex", "new source")
+            return storage.update_job(self.job_id, {"location": "Remote"})
+
+        with (
+            patch("storage.find_pdflatex", return_value="/mock/pdflatex"),
+            patch("storage.subprocess.run", side_effect=paused_compile),
+            ThreadPoolExecutor(max_workers=2) as pool,
+        ):
+            compiled = pool.submit(storage.compile_resume_latex, self.job_id, "source")
+            try:
+                self.assertTrue(entered.wait(timeout=5))
+                edited = pool.submit(edit_job).result(timeout=3)
+                self.assertEqual(edited["location"], "Remote")
+                self.assertFalse(compiled.done())
+            finally:
+                release.set()
+            self.assertTrue(compiled.result(timeout=5)["success"])
+        self.assertEqual(
+            storage.load_text_file(storage.get_job_directory(self.job_id) / "resume.tex"),
+            "new source",
+        )
+
+    def test_deleted_job_is_not_recreated_when_compilation_finishes(self) -> None:
+        entered, release = Event(), Event()
+        job_directory = storage.get_job_directory(self.job_id)
+
+        def paused_compile(command, **kwargs):
+            entered.set()
+            self.assertTrue(release.wait(timeout=10))
+            return subprocess.CompletedProcess(command, 1, stdout="", stderr="Job removed")
+
+        with (
+            patch("storage.find_pdflatex", return_value="/mock/pdflatex"),
+            patch("storage.subprocess.run", side_effect=paused_compile),
+            ThreadPoolExecutor(max_workers=2) as pool,
+        ):
+            compiled = pool.submit(storage.compile_resume_latex, self.job_id, "source")
+            try:
+                self.assertTrue(entered.wait(timeout=5))
+                pool.submit(storage.delete_job, self.job_id).result(timeout=3)
+            finally:
+                release.set()
+            with self.assertRaises(KeyError):
+                compiled.result(timeout=5)
+        self.assertFalse(job_directory.exists())
 
     def test_pdf_library_upload_duplicate_labels_rename_and_delete(self) -> None:
         with patch("storage._utc_now", return_value="2026-09-01T12:00:00+00:00"):

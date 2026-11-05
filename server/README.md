@@ -1,6 +1,6 @@
 # Local Job Tracker
 
-這是一套單機、單使用者、完全在本機執行的求職申請管理工具。它使用 Streamlit 顯示介面，以 JSON、Markdown 與一般檔案保存資料；不需要資料庫、帳號、API server 或網路服務。
+這是一套單機、單使用者、完全在本機執行的求職申請管理工具。它使用 Streamlit 顯示介面，以 JSON、Markdown 與一般檔案保存資料；不需要資料庫或雲端帳號。啟動 dashboard 時會在同一個 process 啟動本機 FastAPI，讓 extension 共用資料。
 
 ## 主要功能
 
@@ -28,23 +28,35 @@
 
 ## 安裝與執行
 
-在本專案資料夾中執行：
+在 repo 根目錄執行：
 
 ```bash
-python -m pip install -r requirements.txt
-streamlit run app.py
+python -m pip install -r server/requirements.txt
+python -m streamlit run server/app.py --server.address 127.0.0.1 --browser.gatherUsageStats false
 ```
 
 第一次啟動時，程式會自動建立資料目錄與預設 JSON 檔案。即使從其他工作目錄啟動 `app.py`，資料仍固定保存在 `app.py` 所在的專案資料夾內。
 
 Calendar 使用已安裝並檢查 API／前端資源的 `streamlit-calendar==1.4.0`。元件的 JavaScript 與 CSS 隨 Python 套件在本機提供，不需要 CDN、外部行事曆帳號或新的前端專案。`tzlocal` 用來取得作業系統的 IANA 時區名稱；`tzdata` 在缺少系統時區資料的平台（例如 Windows）提供 `zoneinfo` 所需資料，避免用固定 UTC offset 推算未來時間。
 
+## 本機 API
+
+API 會在第一個瀏覽器分頁打開 dashboard 時啟動；若 extension 顯示 Tracker 未啟動，除了執行啟動指令，也請打開 dashboard 頁面。**Settings → Local API** 顯示 `http://127.0.0.1:8765` 的執行狀態與可複製 token。除 `/api/health` 外，API 請求必須帶 `Authorization: Bearer <token>`。token 第一次啟動時產生並保存在本機 Settings；API 回應不含 `account`、`password`。
+
+API 與 dashboard 直接使用同一個 `storage.py`，由同一把 process 內的鎖保護資料讀寫；pdflatex 在鎖外執行，編譯期間仍可讀寫申請資料。API 契約與驗收方式見 [local-api.md](../docs/local-api.md)。Extension 的串接在 M2 進行。
+
+`POST /api/jobs` 找到相同網址就原樣回傳，找不到才建立 Preparing to Apply；後續更新一律走 PATCH。匯入只在實際偵測到欄位時保存填表統計，驗證失敗會指出第幾筆與原始原因，整批不寫入。
+
+M1.1 驗證：331 項 Python 測試與 28 項 extension 測試通過；完整結果見 [API 驗收紀錄](../docs/local-api.md)。
+
 ## 專案結構
 
 ```text
-job-tracker/
+server/
 ├── app.py
 ├── storage.py
+├── api.py
+├── local_service.py
 ├── import_jobs.py
 ├── calendar_utils.py
 ├── requirements.txt
@@ -79,9 +91,9 @@ job-tracker/
     └── settings.json.bak
 ```
 
-測試集中在 repo 根目錄的 `tests/job-tracker/`。
+測試集中在 repo 根目錄的 `tests/server/`。
 
-`data/`、`applications/` 與 `backups/` 都位於 `job-tracker/` 下。每筆工作的附件目錄使用程式產生的 UUID，不使用公司或職缺名稱。
+`data/`、`applications/` 與 `backups/` 都位於 `server/` 下。每筆工作的附件目錄使用程式產生的 UUID，不使用公司或職缺名稱。
 
 `.streamlit/config.toml` 會停用 Streamlit 使用統計回傳，並只讓服務監聽 `127.0.0.1`，避免把含明文密碼的工具暴露到區域網路。
 

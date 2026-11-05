@@ -1,12 +1,14 @@
 # AutoApply
 
-AI-assisted resume tailoring and application autofill, with a local Python job tracker, 14 resume tools, 259 Python tests, and 28 extension tests.
+AI-assisted resume tailoring and application autofill, with a local Python job tracker, 14 resume tools, 331 Python tests, and 28 extension tests.
 
 [![CI](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml/badge.svg)](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-259_Python_%2B_28_extension-blue)](tests/)
+[![Tests](https://img.shields.io/badge/tests-331_Python_%2B_28_extension-blue)](tests/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Chrome MV3](https://img.shields.io/badge/Chrome-Manifest_V3-blue)](extension/manifest.json)
-[![Python](https://img.shields.io/badge/Python-3.12%2B-blue)](job-tracker/requirements.txt)
+[![Python](https://img.shields.io/badge/Python-3.12%2B-blue)](server/requirements.txt)
+
+**Merge progress (M1):** the Python dashboard now starts a local API in the same process. Open **Settings → Local API** for its status and token. Extension integration follows in M2; the demo below shows the earlier workflow. [API contract and checks](docs/local-api.md).
 
 ## Demo
 
@@ -67,8 +69,8 @@ PDF import uses a separate loop: at most **120 rounds**, **3 AI attempts per sta
 - **Validated edits with failure isolation:** the [resume executor](extension/options/resumeFunctions.js) checks each batch and returns the original resume when execution fails; [extension tests](tests/extension/resumeFunctions.test.js) cover validation, all 14 operations, cloning, and rollback.
 - **Credential and editing-payload boundaries:** [provider requests](extension/lib/api.js) authenticate separately; the [local validator](extension/options/resumeFunctions.js) rejects full resume/profile/application objects inside tool arguments.
 - **Resume provenance:** the [artifact registry](extension/storage/resumeRegistryStore.js) records resume IDs, version IDs, and storage references for generated artifacts.
-- **Recoverable local persistence:** [tracker storage](job-tracker/storage.py) uses atomic writes and rolling backups, covered by [storage tests](tests/job-tracker/test_storage.py).
-- **Date and export behavior:** [calendar tests](tests/job-tracker/test_calendar_utils.py) cover DST boundaries; [export tests](tests/job-tracker/test_dashboard_export.py) check filtering, visible fields, and password masking.
+- **Recoverable local persistence:** [tracker storage](server/storage.py) uses atomic writes and rolling backups, covered by [storage tests](tests/server/test_storage.py).
+- **Date and export behavior:** [calendar tests](tests/server/test_calendar_utils.py) cover DST boundaries; [export tests](tests/server/test_dashboard_export.py) check filtering, visible fields, and password masking.
 
 ## Quick start
 
@@ -85,16 +87,16 @@ For the optional local tracker, use **Python 3.12+** (tested on 3.14.3):
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r job-tracker/requirements.txt
-python -m streamlit run job-tracker/app.py --server.address 127.0.0.1 --browser.gatherUsageStats false
+python -m pip install -r server/requirements.txt
+python -m streamlit run server/app.py --server.address 127.0.0.1 --browser.gatherUsageStats false
 ```
 
-The tracker needs no API key. `pdflatex` is optional for its LaTeX compilation feature. See the [tracker guide](job-tracker/README.md).
+Opening the dashboard also starts the API on `127.0.0.1:8765`. Copy its token from **Settings → Local API**. The tracker needs no LLM API key. `pdflatex` is optional for its LaTeX compilation feature. See the [tracker guide](server/README.md).
 
 Run both test suites from the repository root with Python and **Node.js 24+**:
 
 ```bash
-python -m pip install pytest==9.2.0
+python -m pip install -r tests/requirements.txt
 python -m pytest -q
 node --test tests/extension/*.test.js
 ```
@@ -104,7 +106,7 @@ Lint checks use Ruff's `E4,E7,E9,F` rules and ESLint's recommended rules:
 ```bash
 python -m pip install ruff==0.17.0
 npm ci --prefix scripts --ignore-scripts
-ruff check --select E4,E7,E9,F job-tracker tests scripts
+ruff check --select E4,E7,E9,F server tests scripts
 npm --prefix scripts run lint
 ```
 
@@ -115,6 +117,8 @@ Package the extension with `python3 scripts/package_extension.py`; the ZIP is wr
 Profiles, resumes, API keys, settings, application records, and notes stay in the extension's `chrome.storage.local` until a feature sends selected context to a configured provider. AI requests can include job text, relevant resume content, instructions, conversations, or notes. PDF import can send the selected PDF to a provider that supports it. API keys authenticate those requests.
 
 The separate tracker stores JSON, CSV, resumes, attachments, notes, and reminders under its local `data/`, `applications/`, and `backups/` directories, which Git ignores. It does not call an LLM provider. Its optional application-account/password fields are saved as plain text.
+
+The local API requires a Bearer token for all data endpoints, binds to `127.0.0.1`, and omits application accounts and passwords from responses. It uses the same storage as the dashboard.
 
 | Manifest permission | Use |
 | --- | --- |
@@ -135,7 +139,7 @@ The implementation and test evidence are linked below.
 | Measure | Result | Evidence |
 | --- | --- | --- |
 | Resume operations | 14: 3 contact, 4 section, 3 entry, 4 line | [Executable allowlist](extension/options/resumeFunctions.js), [tools table](docs/tools.md) |
-| Python tests | 259 passed; 294 subtests | [Tracker test suite](tests/job-tracker/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
+| Python tests | 331 passed; 294 subtests | [Tracker test suite](tests/server/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
 | Extension tests | 28 passed: 27 executor/validator tests and 1 documentation consistency test | [Node test suite](tests/extension/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
 | Lint and packaging | Ruff correctness rules, ESLint recommended, JavaScript syntax, and ZIP packaging | [CI workflow](.github/workflows/ci.yml) |
 
@@ -163,7 +167,7 @@ Next steps:
 
 | Contributor | Implemented work |
 | --- | --- |
-| [yushliu](https://github.com/yushliu) | Primary implementation of the Chrome extension workflow and resume assistant: [validated operations](extension/options/resumeFunctions.js), [AI planning and recovery](extension/lib/api.js), and [resume version tracking](extension/storage/resumeRegistryStore.js). Implemented the [Python tracker](job-tracker/app.py), [storage](job-tracker/storage.py), [calendar](job-tracker/calendar_utils.py), and [tests](tests/job-tracker/). |
+| [yushliu](https://github.com/yushliu) | Primary implementation of the Chrome extension workflow and resume assistant: [validated operations](extension/options/resumeFunctions.js), [AI planning and recovery](extension/lib/api.js), and [resume version tracking](extension/storage/resumeRegistryStore.js). Implemented the [Python tracker](server/app.py), [storage](server/storage.py), [calendar](server/calendar_utils.py), and [tests](tests/server/). |
 | [YuexinJ778](https://github.com/YuexinJ778) | Implemented [resume import, application notes, and custom AI instructions](extension/options/options.js); contributed extension fixes and maintains the public repository. |
 
 Released under the [MIT License](LICENSE).
