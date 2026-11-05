@@ -41,9 +41,13 @@ Calendar 使用已安裝並檢查 API／前端資源的 `streamlit-calendar==1.4
 
 ## 本機 API
 
-開啟 dashboard 後，**Settings → Local API** 顯示 `http://127.0.0.1:8765` 的執行狀態與可複製 token。除 `/api/health` 外，API 請求必須帶 `Authorization: Bearer <token>`。token 第一次啟動時產生並保存在本機 Settings；API 回應不含 `account`、`password`。
+API 會在第一個瀏覽器分頁打開 dashboard 時啟動；若 extension 顯示 Tracker 未啟動，除了執行啟動指令，也請打開 dashboard 頁面。**Settings → Local API** 顯示 `http://127.0.0.1:8765` 的執行狀態與可複製 token。除 `/api/health` 外，API 請求必須帶 `Authorization: Bearer <token>`。token 第一次啟動時產生並保存在本機 Settings；API 回應不含 `account`、`password`。
 
-API 與 dashboard 直接使用同一個 `storage.py`，由同一把 process 內的鎖保護資料操作。API 契約與驗收方式見 [local-api.md](../docs/local-api.md)。Extension 的串接在 M2 進行。
+API 與 dashboard 直接使用同一個 `storage.py`，由同一把 process 內的鎖保護資料讀寫；pdflatex 在鎖外執行，編譯期間仍可讀寫申請資料。API 契約與驗收方式見 [local-api.md](../docs/local-api.md)。Extension 的串接在 M2 進行。
+
+`POST /api/jobs` 找到相同網址就原樣回傳，找不到才建立 Preparing to Apply；後續更新一律走 PATCH。匯入只在實際偵測到欄位時保存填表統計，驗證失敗會指出第幾筆與原始原因，整批不寫入。
+
+M1.1 驗證：331 項 Python 測試與 28 項 extension 測試通過；完整結果見 [API 驗收紀錄](../docs/local-api.md)。
 
 ## 專案結構
 

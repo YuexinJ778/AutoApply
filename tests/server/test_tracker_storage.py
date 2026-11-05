@@ -35,35 +35,37 @@ def test_legacy_jobs_receive_defaults_without_schema_change_or_rewrite(tracker_s
     loaded = storage.load_jobs()
     assert loaded["schema_version"] == 1
     assert loaded["jobs"][0]["source"] == "manual"
-    assert loaded["jobs"][0]["canonical_url"] == ""
     assert loaded["jobs"][0]["autofill_stats"] is None
     assert storage.JOBS_FILE.read_bytes() == before
 
 
 def test_url_identity_retains_job_query_and_ignores_tracking(tracker_storage):
-    first = storage.upsert_job_by_url(values(job_url="https://EXAMPLE.com:443/jobs/1/?gh_jid=7&utm_source=mail#form"))
-    storage.update_job(first["id"], {"status_id": "interviewing", "applied_date": "2026-11-01"})
-    same = storage.upsert_job_by_url(values(job_url="https://example.com/jobs/1?gh_jid=7", location="Remote"))
-    other = storage.upsert_job_by_url(values(job_url="https://example.com/jobs/1?gh_jid=8"))
-    assert same["id"] == first["id"]
-    assert same["status_id"] == "interviewing"
-    assert same["applied_date"] == "2026-11-01"
+    first = storage.get_or_create_job_by_url(values(job_url="https://EXAMPLE.com:443/jobs/1/?gh_jid=7&utm_source=mail#form"))
+    original = storage.update_job(first["id"], {"status_id": "interviewing", "applied_date": "2026-11-01"})
+    before = storage.JOBS_FILE.read_bytes()
+    modified_at = storage.JOBS_FILE.stat().st_mtime_ns
+    same = storage.get_or_create_job_by_url(values(
+        job_url="https://example.com/jobs/1?gh_jid=7", company="Page company", job_title="Page role",
+        status_id="planning", applied_date="", source="extension", location="Remote"))
+    assert same == original
+    assert storage.JOBS_FILE.read_bytes() == before
+    assert storage.JOBS_FILE.stat().st_mtime_ns == modified_at
+    other = storage.get_or_create_job_by_url(values(job_url="https://example.com/jobs/1?gh_jid=8"))
     assert other["id"] != first["id"]
     assert len(storage.load_jobs()["jobs"]) == 2
 
 
-def test_manual_non_http_url_does_not_block_lookup_or_upsert(tracker_storage):
+def test_manual_non_http_url_does_not_block_lookup_or_creation(tracker_storage):
     manual = storage.create_job(values(job_url="Not disclosed"))
     storage.update_job(manual["id"], {"job_url": "example.com", "location": "Remote"})
-    created = storage.upsert_job_by_url(values(job_url="https://example.com/jobs/2"))
+    created = storage.get_or_create_job_by_url(values(job_url="https://example.com/jobs/2"))
     assert storage.find_jobs_by_url("https://example.com/jobs/2#apply")[0]["id"] == created["id"]
     assert storage.get_job_by_id(manual["id"])["job_url"] == "example.com"
 
 
-def test_legacy_http_job_is_reused_with_blank_canonical_url(tracker_storage):
+def test_legacy_http_job_is_reused_by_normalizing_its_url(tracker_storage):
     old = storage.create_job(values(job_url="https://EXAMPLE.com/jobs/3/?utm_medium=email"))
-    assert old["canonical_url"] == ""
-    assert storage.upsert_job_by_url(values(job_url="https://example.com/jobs/3"))["id"] == old["id"]
+    assert storage.get_or_create_job_by_url(values(job_url="https://example.com/jobs/3"))["id"] == old["id"]
 
 
 def test_extension_import_maps_states_and_is_repeatable_without_overwriting_edits(tracker_storage):
@@ -86,8 +88,9 @@ def test_import_preserves_legacy_date_and_coverage_and_validates_batch_first(tra
     record = {"company": "Example Labs", "role": "Engineer", "jobUrl": "https://example.com/1", "status": "applied",
               "appliedAt": "2026-11-01T12:00:00Z", "formFieldCount": 10, "filledFieldCount": 9,
               "updatedAt": "2026-11-01T11:00:00Z"}
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="^Record 2: company cannot be blank\\.$"):
         storage.import_extension_jobs([record, {**record, "company": ""}])
+    assert not tracker_storage.exists()
     assert storage.load_jobs()["jobs"] == []
     job = storage.import_extension_jobs([record])[0]
     assert job["applied_date"] == "2026-11-01"
@@ -170,7 +173,22 @@ def test_import_console_note_array_becomes_markdown_and_remains_idempotent(track
 
 def test_import_validates_notes_before_writing_any_jobs(tracker_storage):
     record = {"company": "Example Labs", "jobTitle": "Engineer", "jobUrl": "https://example.com/notes", "status": "Saved"}
-    with pytest.raises(ValueError, match="Extension note contentMarkdown must be text"):
+    with pytest.raises(ValueError, match="^Record 2: Extension note contentMarkdown must be text\\.$"):
         storage.import_extension_jobs([record, {**record, "jobUrl": "https://example.com/invalid", "notes": [{"contentMarkdown": {"bad": "object"}}]}])
     assert not tracker_storage.exists()
     assert storage.load_jobs()["jobs"] == []
+
+
+@pytest.mark.parametrize("counts", [{}, {"formFieldCount": 0, "filledFieldCount": 0}])
+def test_import_without_detected_fields_has_no_autofill_record(tracker_storage, counts):
+    record = {"company": "Example Labs", "jobTitle": "Engineer", "jobUrl": "https://example.com/zero", **counts}
+    job = storage.import_extension_jobs([record])[0]
+    assert job["autofill_stats"] is None
+    assert storage.get_job_by_id(job["id"])["autofill_stats"] is None
+
+
+def test_import_reports_record_number_for_missing_url_without_writing_batch(tracker_storage):
+    record = {"company": "Example Labs", "jobTitle": "Engineer", "jobUrl": "https://example.com/one"}
+    with pytest.raises(ValueError, match="^Record 3: job_url must be an HTTP URL\\.$"):
+        storage.import_extension_jobs([record, {**record, "jobUrl": "https://example.com/two"}, {**record, "jobUrl": ""}])
+    assert not tracker_storage.exists()

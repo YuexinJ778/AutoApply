@@ -1,4 +1,4 @@
-# Local tracker API (M1)
+# Local tracker API (M1.1)
 
 From the repository root, install and start the dashboard:
 
@@ -25,7 +25,7 @@ send a runtime message to background for tracker operations.
 | --- | --- | --- |
 | GET | `/api/statuses` | Returns the configured status records (`id`, `label`, etc.). |
 | GET | `/api/jobs` | Returns jobs; optional `?url=` matches normalized URLs. |
-| POST | `/api/jobs` | JSON `company`, `job_title`, `job_url`; optional `location`, `email`, `status_id`, `applied_date`, `autofill_stats`. Returns the created/updated job with `source="extension"`. New jobs default to `planning`; omitted update fields are preserved. |
+| POST | `/api/jobs` | JSON `company`, `job_title`, `job_url`; optional `location`, `email`, `applied_date`, `autofill_stats`. Finds the normalized URL and returns the existing job unchanged, or creates a new job with `source="extension"` and `status_id="planning"`. A supplied `status_id` is ignored. All updates use PATCH. |
 | PATCH | `/api/jobs/{id}` | JSON containing any of `status_id`, `applied_date`, `autofill_stats`; returns the updated job. |
 | POST | `/api/jobs/{id}/resumes` | Multipart `file`, optional `label`; returns PDF version metadata with `source="extension"`. |
 | GET / PUT | `/api/jobs/{id}/notes` | Returns / accepts `{ "notes": "Markdown text" }`, using the dashboard's `notes.md`. |
@@ -40,6 +40,9 @@ will be wired to a user action in M2.
 URL identity ignores fragments, default ports, trailing slashes, and known
 tracking query parameters; meaningful job identifiers remain. Repeated imports
 skip existing normalized URLs, preserving subsequent dashboard edits and notes.
+Autofill statistics are recorded only for imports with `formFieldCount > 0`;
+missing or zero counts leave `autofill_stats` null. URL identity is calculated
+from `job_url` on each lookup.
 Legacy records use `company`, `jobTitle` (or `role`), `jobUrl`, `status`, and
 optional `location`, `appliedAt`, `notes`, `filledFieldCount`, `formFieldCount`.
 `notes` accepts text or the Console's note array; array entries retain their
@@ -49,7 +52,11 @@ Rejected → rejected, Withdrawn → archived. Other existing extension preparat
 states map to planning.
 
 Missing/wrong token returns 401, missing job returns 404, and invalid request or
-storage values return 422. No LLM calls run on the server.
+storage values return 422. Storage errors retain their original message in
+`detail`; import validation errors identify the one-based record number, for
+example `Record 3: job_url must be an HTTP URL.` The whole batch is validated
+before writing. Request shape errors use FastAPI's standard validation response.
+No LLM calls run on the server.
 
 ## Verify
 
@@ -71,30 +78,25 @@ node --test tests/extension/*.test.js
 
 The tests use temporary storage. UI tests stub the service launcher; API tests
 exercise real storage through FastAPI TestClient. The API and dashboard share
-one process lock around complete storage operations. Existing jobs gain missing
+one process lock around storage reads and writes. LaTeX compilation executes
+`pdflatex` outside that lock against a snapshot of the submitted source; its
+file preparation and result publication use short locked sections. Existing jobs gain missing
 field defaults when read, while the on-disk schema version remains 1.
 
-## M1 validation — 2026-11-05
+## M1.1 validation — 2026-11-05
 
-- Python 3.14.3 / Streamlit 1.62.0: **317 passed**, plus 294 subtests.
-  This includes 40 API cases, 13 tracker storage cases, and 5 service/UI cases
-  added to the existing 259 tests. Starlette emits one TestClient/httpx
-  deprecation warning.
+- Python 3.14.3 / Streamlit 1.62.0: **331 passed**, plus 294 subtests.
+  Starlette emits one TestClient/httpx deprecation warning.
+- Regression coverage includes POST preserving all existing fields and file
+  bytes, readable storage errors, import sample counts, indexed import errors
+  without writes, and jobs reads/writes while a fake pdflatex process is blocked.
+- Local service tests cover one cached daemon thread, live running status,
+  the original bind error, and Settings URL/token display. The service ends
+  with its owning process; it has no shutdown/restart interface.
 - Extension: **28 passed**. Ruff, ESLint, JavaScript syntax, dependency checks,
   extension packaging and ZIP integrity passed.
-- Started the dashboard from an isolated copy of `server/` with one Streamlit
-  command, then opened it in a real browser. Settings showed the running API and
-  token. `lsof` showed dashboard port 18501 and API port 8765 owned by the same
-  PID, both listening only on `127.0.0.1`.
-- Live curl statuses were health **200**, jobs without token **401**, jobs with
-  token **200**. Two POSTs of a normalized URL produced one job. Notes persisted,
-  and an uploaded PDF version had `source="extension"`. Returning to the
-  dashboard showed Pending = 1 and Showing 1 jobs.
-- The isolated service was stopped after validation. The repository's runtime
-  data directories were not created by tests; no demo screenshots were captured.
-- A second live check kept an HTTP client open while stopping and immediately
-  restarting the API on the same temporary port. Both health checks returned
-  200; the listener uses `SO_REUSEADDR` for normal restarts.
-- Regression cases cover PDF upload after job deletion (no recreated folder),
-  real Console note arrays, and rejection of malformed imported notes before
-  any writes.
+- A real browser session started the simplified service and Settings showed it
+  running. Live curl checks returned 200 / 401 / 200; repeated POST preserved
+  the stored bytes, zero-field imports had null statistics, and an invalid
+  third record returned its original reason with no batch writes. Both listeners
+  belonged to one process. The isolated process and test data were removed.

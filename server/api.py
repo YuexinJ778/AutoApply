@@ -6,7 +6,6 @@ from secrets import compare_digest
 from typing import Any
 
 from fastapi import APIRouter, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
-from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
@@ -22,7 +21,6 @@ class JobInput(BaseModel):
     job_url: str
     location: str = ""
     email: str = ""
-    status_id: str = "planning"
     applied_date: str = ""
     autofill_stats: dict[str, Any] | None = None
 
@@ -72,17 +70,12 @@ def create_app(token: str | None = None) -> FastAPI:
             )
 
     @app.exception_handler(ValueError)
-    def invalid_data(_request, _error):
-        return JSONResponse(status_code=422, content={"detail": "Invalid tracker data."})
-
-    @app.exception_handler(RequestValidationError)
-    def invalid_request(_request, _error):
-        # FastAPI's default response includes raw input values, including secrets.
-        return JSONResponse(status_code=422, content={"detail": "Invalid request data."})
+    def invalid_data(_request, error):
+        return JSONResponse(status_code=422, content={"detail": str(error)})
 
     @app.exception_handler(KeyError)
-    def missing_job(_request, _error):
-        return JSONResponse(status_code=404, content={"detail": "Job not found."})
+    def missing_job(_request, error):
+        return JSONResponse(status_code=404, content={"detail": str(error.args[0])})
 
     @app.get("/api/health")
     def health():
@@ -99,10 +92,10 @@ def create_app(token: str | None = None) -> FastAPI:
         return _public(storage.find_jobs_by_url(url))
 
     @router.post("/jobs")
-    def upsert_job(values: JobInput):
+    def get_or_create_job(values: JobInput):
         payload = values.model_dump(exclude_unset=True)
         payload["source"] = "extension"
-        return _public(storage.upsert_job_by_url(payload))
+        return _public(storage.get_or_create_job_by_url(payload))
 
     @router.patch("/jobs/{job_id}")
     def update_job(job_id: str, values: JobUpdates):

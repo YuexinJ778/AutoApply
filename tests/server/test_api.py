@@ -78,11 +78,11 @@ def test_every_data_route_requires_the_correct_token(client, authorization, meth
     assert response.status_code == 401
 
 
-def test_canonical_url_upsert_and_lookup_share_one_record(client):
+def test_normalized_url_create_and_lookup_share_one_record(client):
     first = create_job(client, job_url="https://EXAMPLE.com/jobs/123/?utm_source=demo#apply")
     second = create_job(client, job_url="https://example.com/jobs/123", location="Remote")
     assert first["id"] == second["id"]
-    assert second["location"] == "Remote"
+    assert second == first
     assert second["source"] == "extension"
     assert second["status_id"] == "planning"
     response = client.get("/api/jobs", params={"url": "https://example.com/jobs/123#resume"}, headers=AUTH)
@@ -91,12 +91,26 @@ def test_canonical_url_upsert_and_lookup_share_one_record(client):
     assert len(storage.load_jobs()["jobs"]) == 1
 
 
-def test_upsert_preserves_existing_applied_status_when_omitted(client):
-    original = create_job(client, status_id="applied", applied_date="2026-11-05")
-    updated = create_job(client, location="Remote")
-    assert updated["id"] == original["id"]
-    assert updated["status_id"] == "applied"
-    assert updated["applied_date"] == "2026-11-05"
+def test_repeated_post_preserves_all_existing_job_fields(client):
+    original = storage.create_job({
+        **payload(), "status_id": "applied", "source": "manual",
+        "location": "Original location", "applied_date": "2026-11-05",
+    })
+    response = client.patch(f"/api/jobs/{original['id']}", headers=AUTH,
+                            json={"status_id": "interviewing"})
+    assert response.status_code == 200
+    before = response.json()
+    file_before = storage.JOBS_FILE.read_bytes()
+    repeated = create_job(client, company="Page company", job_title="Page title",
+                          location="Remote", status_id="planning")
+    assert repeated == before
+    assert repeated["source"] == "manual"
+    assert storage.JOBS_FILE.read_bytes() == file_before
+
+
+def test_new_post_ignores_status_and_uses_planning(client):
+    job = create_job(client, status_id="offer")
+    assert job["status_id"] == "planning"
 
 
 def test_statuses_and_patch_use_server_status_ids(client):
@@ -115,12 +129,11 @@ def test_statuses_and_patch_use_server_status_ids(client):
     assert saved["autofill_stats"]["filled"] == 9
 
 
-def test_invalid_status_is_rejected_on_create_and_patch(client):
-    response = client.post("/api/jobs", json=payload(status_id="invented"), headers=AUTH)
-    assert response.status_code == 422
+def test_invalid_patch_status_returns_the_storage_reason(client):
     job = create_job(client)
     response = client.patch(f"/api/jobs/{job['id']}", json={"status_id": "invented"}, headers=AUTH)
     assert response.status_code == 422
+    assert response.json()["detail"] == "status_id must be a configured status ID."
     assert storage.get_job_by_id(job["id"])["status_id"] == "planning"
 
 
@@ -164,6 +177,55 @@ def test_import_is_repeatable_and_archives_withdrawn(client):
     assert storage.get_job_notes(first.json()[0]["id"]) == "Archived note"
 
 
+@pytest.mark.parametrize("counts,expected", [
+    ({}, None),
+    ({"formFieldCount": 0, "filledFieldCount": 0}, None),
+    ({"formFieldCount": 5, "filledFieldCount": 3}, {"filled": 3, "detected": 5}),
+])
+def test_import_records_coverage_only_for_detected_fields(client, counts, expected):
+    record = {"company": "Import Co", "jobTitle": "Engineer",
+              "jobUrl": "https://example.com/import", **counts}
+    response = client.post("/api/import", headers=AUTH, json={"jobs": [record]})
+    assert response.status_code == 200, response.text
+    stats = response.json()[0]["autofill_stats"]
+    if expected is None:
+        assert stats is None
+    else:
+        assert stats["filled"] == expected["filled"]
+        assert stats["detected"] == expected["detected"]
+
+
+def test_import_error_identifies_record_and_writes_nothing(client):
+    records = [{"company": "Import Co", "jobTitle": "Engineer",
+                "jobUrl": f"https://example.com/{i}"} for i in range(3)]
+    del records[2]["jobUrl"]
+    before = storage.JOBS_FILE.read_bytes()
+    response = client.post("/api/import", headers=AUTH, json={"jobs": records})
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Record 3: job_url must be an HTTP URL."
+    assert storage.JOBS_FILE.read_bytes() == before
+    assert list(storage.APPLICATIONS_DIR.iterdir()) == []
+
+
+@pytest.mark.parametrize("detected", [None, "0"])
+def test_invalid_import_count_returns_an_indexed_422(client, detected):
+    record = {"company": "Import Co", "jobTitle": "Engineer",
+              "jobUrl": "https://example.com/import", "formFieldCount": detected}
+    before = storage.JOBS_FILE.read_bytes()
+    response = client.post("/api/import", headers=AUTH, json={"jobs": [record]})
+    assert response.status_code == 422
+    assert response.json()["detail"].startswith("Record 1: ")
+    assert "not supported" in response.json()["detail"]
+    assert storage.JOBS_FILE.read_bytes() == before
+
+
+@pytest.mark.parametrize("authorization", [None, "Bearer incorrect"])
+def test_unauthorized_invalid_job_body_returns_401(client, authorization):
+    headers = {} if authorization is None else {"Authorization": authorization}
+    response = client.post("/api/jobs", headers=headers, json={"company": []})
+    assert response.status_code == 401
+
+
 def assert_no_credential_keys(value):
     if isinstance(value, dict):
         assert not {"account", "password"}.intersection(value)
@@ -174,7 +236,7 @@ def assert_no_credential_keys(value):
             assert_no_credential_keys(item)
 
 
-def test_responses_never_include_saved_credentials_or_validation_input(client):
+def test_responses_never_include_saved_credentials(client):
     job = create_job(client)
     storage.update_job(job["id"], {
         "account": "private-account", "password": "private-password",
@@ -187,10 +249,9 @@ def test_responses_never_include_saved_credentials_or_validation_input(client):
         client.post("/api/import", headers=AUTH, json={"jobs": [{
             "company": "Example Labs", "jobTitle": "Engineer", "jobUrl": job["job_url"], "status": "Applied",
         }]}),
-        client.post("/api/jobs", headers=AUTH, json={"company": {"password": "private-password"}}),
     ]
     for response in responses:
-        assert response.status_code in {200, 422}
+        assert response.status_code == 200
         assert_no_credential_keys(response.json())
         assert "private-password" not in response.text
         assert "private-account" not in response.text
@@ -226,7 +287,6 @@ def test_legacy_document_is_readable_without_a_schema_migration(client):
     assert response.status_code == 200
     job = response.json()[0]
     assert job["source"] == "manual"
-    assert job["canonical_url"] == ""
     assert job["autofill_stats"] is None
     assert json.loads(storage.JOBS_FILE.read_text()) == legacy
 

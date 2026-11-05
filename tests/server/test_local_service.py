@@ -21,7 +21,6 @@ def runtime(monkeypatch):
     monkeypatch.setattr(local_service.socket, "socket", lambda *args: listener)
     config = MagicMock()
     monkeypatch.setattr(local_service.uvicorn, "Config", config)
-    monkeypatch.setattr(local_service.atexit, "register", MagicMock())
 
     class Server:
         instances = []
@@ -33,6 +32,7 @@ def runtime(monkeypatch):
             self.instances.append(self)
 
         def run(self, sockets):
+            self.thread = threading.current_thread()
             self.sockets = sockets
             self.started = True
             wait = threading.Event()
@@ -41,8 +41,9 @@ def runtime(monkeypatch):
 
     monkeypatch.setattr(local_service.uvicorn, "Server", Server)
     yield listener, api, config, Server
-    service = local_service.start_local_service()
-    service.stop()
+    for server in Server.instances:
+        server.should_exit = True
+        server.thread.join(timeout=1)
     local_service.start_local_service.clear()
 
 
@@ -55,9 +56,6 @@ def test_reruns_share_one_loopback_api_thread(runtime):
     assert first.running
     assert first.url == "http://127.0.0.1:8765"
     assert len(server_type.instances) == 1
-    listener.setsockopt.assert_called_once_with(
-        local_service.socket.SOL_SOCKET, local_service.socket.SO_REUSEADDR, 1
-    )
     listener.bind.assert_called_once_with(("127.0.0.1", 8765))
     api.assert_called_once_with(token="test-token")
     assert config.call_args.kwargs["host"] == "127.0.0.1"
@@ -83,7 +81,8 @@ def test_status_changes_when_api_thread_stops(runtime):
     service = local_service.start_local_service()
     assert service.running
 
-    service.stop()
+    service._server.should_exit = True
+    service._thread.join(timeout=1)
 
     assert not service.running
 

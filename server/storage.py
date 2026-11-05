@@ -335,7 +335,6 @@ def _normalise_job(raw_job: Mapping[str, Any]) -> dict[str, Any]:
         "created_at": "",
         "updated_at": "",
         "source": "manual",
-        "canonical_url": "",
     }
     for key, default in string_defaults.items():
         if job.get(key) is None:
@@ -1197,7 +1196,7 @@ def find_jobs_by_url(url: str | None = None) -> list[dict[str, Any]]:
     matches = []
     for job in jobs:
         try:
-            identity = job.get("canonical_url") or canonicalize_job_url(job.get("job_url", ""))
+            identity = canonicalize_job_url(job.get("job_url", ""))
         except ValueError:
             continue  # Legacy manual jobs may contain a label instead of an HTTP URL.
         if identity == canonical:
@@ -1206,15 +1205,13 @@ def find_jobs_by_url(url: str | None = None) -> list[dict[str, Any]]:
 
 
 @_locked
-def upsert_job_by_url(values: Mapping[str, Any]) -> dict[str, Any]:
-    """Create once per URL; updates preserve fields omitted by the caller."""
+def get_or_create_job_by_url(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Return an existing job unchanged, or create it once per normalized URL."""
 
-    changes = dict(values)
-    canonical = canonicalize_job_url(changes.get("job_url", ""))
-    matches = find_jobs_by_url(canonical)
-    changes["canonical_url"] = canonical
+    matches = find_jobs_by_url(values.get("job_url", ""))
     if matches:
-        return update_job(matches[0]["id"], changes)
+        return matches[0]
+    changes = dict(values)
     changes.setdefault("status_id", "planning")
     return create_job(changes)
 
@@ -1292,36 +1289,39 @@ def import_extension_jobs(records: Sequence[Mapping[str, Any]]) -> list[dict[str
     """Import legacy extension jobs once, without overwriting later tracker edits."""
 
     prepared = []
-    for record in records:
-        status = str(record.get("status", "saved")).lower()
-        if status not in _EXTENSION_STATUS_IDS:
-            raise ValueError("Unknown extension status.")
-        values = {
-            "company": record.get("company", ""),
-            "job_title": record.get("jobTitle") or record.get("role", ""),
-            "job_url": record.get("jobUrl", ""),
-            "location": record.get("location", ""),
-            "status_id": _EXTENSION_STATUS_IDS[status],
-            "applied_date": str(record.get("appliedAt") or "")[:10],
-            "source": "import",
-        }
-        if "filledFieldCount" in record or "formFieldCount" in record:
-            values["autofill_stats"] = {
-                "filled": record.get("filledFieldCount", 0),
-                "detected": record.get("formFieldCount", 0),
-                "recorded_at": record.get("updatedAt") or record.get("createdAt") or _utc_now(),
+    for number, record in enumerate(records, start=1):
+        try:
+            status = str(record.get("status", "saved")).lower()
+            if status not in _EXTENSION_STATUS_IDS:
+                raise ValueError("Unknown extension status.")
+            values = {
+                "company": record.get("company", ""),
+                "job_title": record.get("jobTitle") or record.get("role", ""),
+                "job_url": record.get("jobUrl", ""),
+                "location": record.get("location", ""),
+                "status_id": _EXTENSION_STATUS_IDS[status],
+                "applied_date": str(record.get("appliedAt") or "")[:10],
+                "source": "import",
             }
-        values = validate_job_values(_normalise_job(values))
-        canonicalize_job_url(values["job_url"])
-        _validate_job_status(values)
-        prepared.append((values, status == "withdrawn", _extension_notes_markdown(record.get("notes"))))
+            if record.get("formFieldCount", 0) > 0:
+                values["autofill_stats"] = {
+                    "filled": record.get("filledFieldCount", 0),
+                    "detected": record["formFieldCount"],
+                    "recorded_at": record.get("updatedAt") or record.get("createdAt") or _utc_now(),
+                }
+            values = validate_job_values(_normalise_job(values))
+            canonicalize_job_url(values["job_url"])
+            _validate_job_status(values)
+            prepared.append((values, status == "withdrawn", _extension_notes_markdown(record.get("notes"))))
+        except (ValueError, TypeError) as error:
+            raise ValueError(f"Record {number}: {error}") from error
     imported = []
     for values, withdrawn, notes in prepared:
         matches = find_jobs_by_url(values["job_url"])
         if matches:
             imported.append(matches[0])
             continue
-        job = upsert_job_by_url(values)
+        job = get_or_create_job_by_url(values)
         if withdrawn:
             job = archive_job(job["id"])
         if notes:
@@ -1370,11 +1370,6 @@ def update_job(job_id: str, updates: Mapping[str, Any]) -> dict[str, Any]:
         changed = validate_job_values(_normalise_job(changed))
         if "status_id" in updates:
             _validate_job_status(changed)
-        if "job_url" in updates:
-            try:
-                changed["canonical_url"] = canonicalize_job_url(changed["job_url"])
-            except ValueError:
-                changed["canonical_url"] = ""
         document["jobs"][index] = changed
         save_jobs(document)
         return copy.deepcopy(changed)
@@ -1869,37 +1864,24 @@ def load_compiled_preview(job_id: str) -> bytes | None:
     return data if _looks_like_pdf(data) else None
 
 
-@_locked
 def compile_resume_latex(job_id: str, source: str) -> dict[str, Any]:
     """Save resume.tex and publish a preview only after a successful pdflatex run."""
 
     source_text = str(source)
-    job_directory = get_job_directory(job_id, create=True)
-    save_text_file(job_directory / "resume.tex", source_text)
-    build_directory = _ensure_job_folder(job_id, "build")
-
-    previous_status = load_compile_status(job_id) or {}
-    previous_preview = load_compiled_preview(job_id)
-    last_successful_at = previous_status.get("compiled_at") if previous_preview else None
-    preview_source_hash = (
-        previous_status.get("preview_source_hash", "") if previous_preview else ""
-    )
-    if previous_preview is not None and not last_successful_at:
-        preview_path = _job_nested_path(job_id, "build", "preview.pdf")
-        last_successful_at = datetime.fromtimestamp(
-            preview_path.stat().st_mtime, timezone.utc
-        ).isoformat()
-
     attempted_at = _utc_now()
     source_hash = hashlib.sha256(source_text.encode("utf-8")).hexdigest()
     executable = find_pdflatex()
-    staging_name = f".compile-{uuid.uuid4()}"
-    staging_directory = _job_nested_path(job_id, "build", staging_name)
-    staging_directory.mkdir()
+    with _STORAGE_LOCK:
+        job_directory = get_job_directory(job_id, create=True)
+        save_text_file(job_directory / "resume.tex", source_text)
+        build_directory = _ensure_job_folder(job_id, "build")
+        staging_directory = _job_nested_path(job_id, "build", f".compile-{uuid.uuid4()}")
+        staging_directory.mkdir()
+        compile_source = staging_directory / "resume.tex"
+        compile_source.write_text(source_text, encoding="utf-8")
 
     return_code: int | None = None
     timed_out = False
-    success = False
     error_summary = ""
     log = ""
 
@@ -1917,7 +1899,7 @@ def compile_resume_latex(job_id: str, source: str) -> dict[str, Any]:
                 "-halt-on-error",
                 "-no-shell-escape",
                 f"-output-directory={staging_directory}",
-                "resume.tex",
+                str(compile_source),
             ]
             try:
                 completed = subprocess.run(
@@ -1952,6 +1934,22 @@ def compile_resume_latex(job_id: str, source: str) -> dict[str, Any]:
             sections = [section for section in (engine_log, stdout, stderr) if section]
             log = "\n\n".join(sections)
 
+        with _STORAGE_LOCK:
+            if get_job_by_id(job_id) is None:
+                raise KeyError(f"Job not found: {job_id}")
+            previous_status = load_compile_status(job_id) or {}
+            previous_preview = load_compiled_preview(job_id)
+            last_successful_at = previous_status.get("compiled_at") if previous_preview else None
+            preview_source_hash = (
+                previous_status.get("preview_source_hash", "") if previous_preview else ""
+            )
+            if previous_preview is not None and not last_successful_at:
+                preview_path = _job_nested_path(job_id, "build", "preview.pdf")
+                last_successful_at = datetime.fromtimestamp(
+                    preview_path.stat().st_mtime, timezone.utc
+                ).isoformat()
+
+            success = False
             candidate = staging_directory / "resume.pdf"
             if return_code == 0 and candidate.is_file() and not candidate.is_symlink():
                 candidate_data = candidate.read_bytes()
@@ -1977,36 +1975,37 @@ def compile_resume_latex(job_id: str, source: str) -> dict[str, Any]:
                     job_id, ("build", "resume.aux"), auxiliary.read_bytes()
                 )
 
-        if not success:
-            error_summary = _compile_error_summary(log, error_summary)
-            if error_summary and error_summary not in log:
-                log = f"{error_summary}\n\n{log}".rstrip()
+            if not success:
+                error_summary = _compile_error_summary(log, error_summary)
+                if error_summary and error_summary not in log:
+                    log = f"{error_summary}\n\n{log}".rstrip()
 
-        status: dict[str, Any] = {
-            "schema_version": COMPILE_STATUS_SCHEMA_VERSION,
-            "success": success,
-            "attempted_at": attempted_at,
-            "compiled_at": last_successful_at,
-            "source_hash": source_hash,
-            "preview_source_hash": preview_source_hash,
-            "return_code": return_code,
-            "timed_out": timed_out,
-            "error_summary": error_summary,
-        }
-        _atomic_write_job_bytes(
-            job_id, ("build", "resume.log"), log.encode("utf-8")
-        )
-        _atomic_write_job_json(
-            job_id, ("build", "compile_status.json"), status
-        )
-        return status
+            status: dict[str, Any] = {
+                "schema_version": COMPILE_STATUS_SCHEMA_VERSION,
+                "success": success,
+                "attempted_at": attempted_at,
+                "compiled_at": last_successful_at,
+                "source_hash": source_hash,
+                "preview_source_hash": preview_source_hash,
+                "return_code": return_code,
+                "timed_out": timed_out,
+                "error_summary": error_summary,
+            }
+            _atomic_write_job_bytes(
+                job_id, ("build", "resume.log"), log.encode("utf-8")
+            )
+            _atomic_write_job_json(
+                job_id, ("build", "compile_status.json"), status
+            )
+            return status
     finally:
-        if (
-            staging_directory.is_dir()
-            and not staging_directory.is_symlink()
-            and staging_directory.resolve().parent == build_directory
-        ):
-            shutil.rmtree(staging_directory)
+        with _STORAGE_LOCK:
+            if (
+                staging_directory.is_dir()
+                and not staging_directory.is_symlink()
+                and staging_directory.resolve().parent == build_directory
+            ):
+                shutil.rmtree(staging_directory)
 
 
 def _clean_pdf_label(label: str) -> str:
