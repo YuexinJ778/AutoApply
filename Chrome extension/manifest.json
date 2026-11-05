@@ -18,13 +18,11 @@
     "debugger"
   ],
   "host_permissions": [
-    "https://api.minimax.io/*",
     "<all_urls>"
   ],
   "content_scripts": [
     {
       "matches": [
-        "https://career2.successfactors.eu/*",
         "<all_urls>"
       ],
       "js": [

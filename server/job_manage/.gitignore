@@ -1,0 +1,17 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env
+
+# 本機使用者資料（可能包含明文密碼與履歷）
+data/jobs.json
+data/settings.json
+data/*.tmp
+applications/
+backups/
+
+# 常見作業系統與編輯器檔案
+.DS_Store
+.idea/
+.vscode/

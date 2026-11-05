@@ -1,0 +1,13 @@
+title = "AutoApply secret scanning"
+
+[extend]
+useDefault = true
+
+# These exact values are public JavaScript identifiers, not credentials.
+# Keep every default detector enabled and do not suppress files or commits.
+[[rules]]
+id = "generic-api-key"
+[[rules.allowlists]]
+description = "Exact API object reference and Chrome storage key false positives"
+regexTarget = "secret"
+regexes = ['''^globalThis\.Stage5Api$''', '''^savedJobRecordsV2$''']

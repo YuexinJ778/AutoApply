@@ -19,24 +19,24 @@ import type {
 const PIPELINE_MODE = "prepare-only" as const;
 
 const mockProfile = {
-  name: "Test User",
-  email: "test@example.com",
-  password: "Test@12345",
-  legalFirstName: "Test",
-  legalLastName: "User",
-  preferredFirstName: "",
-  chineseFirstName: "",
-  chineseLastName: "",
+  name: "Demo Applicant",
+  email: "demo.applicant@example.com",
+  password: "",
+  legalFirstName: "Demo",
+  legalLastName: "Applicant",
+  preferredFirstName: "Demo",
+  chineseFirstName: "测试",
+  chineseLastName: "用户",
   internationalCallingCode: "+1",
-  preferredContactNumber: "",
+  preferredContactNumber: "2025550147",
   hasRelativesAtHsbc: "No",
   relativesDetails: "",
   isFormerEmployeeOrContractor: "No",
   employeeIdOrContractorInfo: "",
-  phone: "+1 555 123 4567",
-  location: "New York, NY",
-  linkedin: "https://www.linkedin.com/in/test-user",
-  github: "https://github.com/test-user"
+  phone: "+1-202-555-0147",
+  location: "Washington, DC, United States",
+  linkedin: "https://example.com/demo/linkedin",
+  github: "https://example.com/demo/github"
 };
 
 function cleanString(value: unknown): string {

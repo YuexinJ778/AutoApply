@@ -1,0 +1,8 @@
+# Validated against the UI test suite; newer releases change widget state APIs.
+streamlit[pdf]==1.62.0
+pandas>=2.0
+streamlit-calendar==1.4.0
+# Detect the computer's IANA timezone; never infer it from a fixed UTC offset.
+tzlocal>=5.3,<6
+# IANA timezone fallback on platforms without system zoneinfo (notably Windows).
+tzdata>=2025.2

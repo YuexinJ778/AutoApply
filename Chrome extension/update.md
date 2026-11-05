@@ -3174,8 +3174,8 @@ Priority order in `runKeywordDatasetAutofill` remains:
   - Projects: name, role, organization, location, bullets
   - Skills: category labels in renderer
 - Added URL normalization for preview/PDF source HTML:
-  - `github.com/example` renders as `https://github.com/example`
-  - `linkedin.com/in/example` renders as `https://linkedin.com/in/example`
+  - `example.com/demo/github` renders as `https://example.com/demo/github`
+  - `example.com/demo/linkedin` renders as `https://example.com/demo/linkedin`
   - Portfolio URLs without protocol also get `https://`
   - Email uses `mailto:`
   - Phone uses `tel:`
@@ -4734,7 +4734,7 @@ Three CSS rules under `.notes-rendered-block .md-checklist` were updated:
 {
   "assistantMessage": "Human-readable description of what I will do.",
   "functionCalls": [
-    { "name": "setContactField", "args": { "field": "firstName", "value": "Yu-Hsien" } }
+    { "name": "setContactField", "args": { "field": "firstName", "value": "Demo" } }
   ]
 }
 ```
@@ -4773,13 +4773,13 @@ Three CSS rules under `.notes-rendered-block .md-checklist` were updated:
 5. Switch to AI Assistant.
 6. Confirm the chat interface appears on the left; PDF preview remains on the right.
 7. Confirm the initial message: "Hi, I can help edit your resume. Tell me what you want to change."
-8. Send: "Set my first name to Yu-Hsien."
+8. Send: "Set my first name to Demo."
 9. Confirm AI executes `setContactField` after self-check.
-10. Confirm the chat shows "Done: Set firstName → Yu-Hsien".
-11. Switch back to Manual Mode and confirm First Name field shows "Yu-Hsien".
+10. Confirm the chat shows "Done: Set firstName → Demo".
+11. Switch back to Manual Mode and confirm First Name field shows "Demo".
 12. Confirm PDF preview refreshes to show the new name.
-13. Send: "Add github.com/yushliu to my links."
-14. Confirm a Contact Link is added as plain text "github.com/yushliu" (no https).
+13. Send: "Add example.com/demo/github to my links."
+14. Confirm a Contact Link is added as plain text "example.com/demo/github" (no https).
 15. Send: "Add an Education section."
 16. Confirm a Section named "Education" is added.
 17. Send: "Add an entry under Education for Purdue University, date 2024 - Present, subtitle B.S. in Computer Engineering and Mathematics and Statistics."
@@ -5945,7 +5945,7 @@ Note: `profileResumeSubtitleEl` (`getElementById("profile-resume-subtitle")`) re
 ### Manual verification steps
 1. Open Console -> Profile.
 2. Switch to AI Assistant.
-3. Ask: Set my first name to Yu-Hsien and last name to Liu.
+3. Ask: Set my first name to Demo and last name to Applicant.
 4. Confirm AI returns 2 function calls.
 5. Confirm self-check approves the batch before execution.
 6. Confirm both fields update.

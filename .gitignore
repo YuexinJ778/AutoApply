@@ -17,3 +17,22 @@ __pycache__/
 .DS_Store
 **/output/*
 !**/output/.gitkeep
+
+# Job-manager data is private runtime state, never a source-code fixture.
+/server/job_manage/data/
+*.db
+*.sqlite
+*.sqlite3
+*.pdf
+*.docx
+
+# Local audit reports and test artifacts.
+/.phase0/
+gitleaks*.json
+gitleaks*.sarif
+*-gitleaks.json
+*-gitleaks.log
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
