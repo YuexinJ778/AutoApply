@@ -271,7 +271,9 @@
         const parsed = new URL(url);
         hostname = hostname || parsed.hostname;
         pathname = pathname || parsed.pathname;
-      } catch {}
+      } catch {
+        // Keep the supplied host and path when the URL cannot be parsed.
+      }
     }
     const extractedAt = toIsoOrNow(firstNonEmpty([safe.extractedAt, safe.updatedAt, safe.createdAt]));
 
@@ -318,7 +320,9 @@
         const parsed = new URL(jobUrl);
         hostname = hostname || parsed.hostname;
         pathname = pathname || parsed.pathname;
-      } catch {}
+      } catch {
+        // Keep the supplied host and path when the URL cannot be parsed.
+      }
     }
     const jobDescriptionText = firstNonEmpty([safe.jobDescriptionText, safe.descriptionText, safe.description, safe.rawText]);
     const pageText = firstNonEmpty([safe.pageText, safe.fullPageText]);
@@ -653,7 +657,7 @@
     let storedAppData = {};
     let storedSettings = {};
     let currentJob = null;
-    let storedCanonicalRaw = null;
+    let storedCanonicalRaw;
 
     if (appStore && typeof appStore.getAppData === "function") {
       storedAppData = await appStore.getAppData();
@@ -842,267 +846,7 @@
     });
   }
 
-  function hasFieldContent(source, keys) {
-    const safe = isObject(source) ? source : {};
-    const keyList = ensureArray(keys);
-
-    for (let index = 0; index < keyList.length; index += 1) {
-      const key = cleanString(keyList[index]);
-      if (!key) {
-        continue;
-      }
-      if (hasAnyContent(safe[key], 0)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  function hasNonEmptyString(value) {
-    return Boolean(cleanString(value));
-  }
-
-  function hasMeaningfulArrayItem(list) {
-    const values = ensureArray(list);
-    for (let index = 0; index < values.length; index += 1) {
-      if (hasAnyContent(values[index], 0)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function hasAnyNonEmptyInKeys(source, keys) {
-    const safe = isObject(source) ? source : {};
-    const fields = ensureArray(keys);
-    for (let index = 0; index < fields.length; index += 1) {
-      if (hasNonEmptyString(safe[fields[index]])) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function resolveLocalizedText(value, lang) {
-    if (typeof value === "string" || typeof value === "number") {
-      return cleanString(value);
-    }
-    if (!isObject(value)) {
-      return "";
-    }
-    const en = cleanString(value.en);
-    const zh = cleanString(value.zh);
-    return lang === "zh" ? zh : en;
-  }
-
-  function resolveLocalizedName(profile, lang) {
-    const safe = isObject(profile) ? profile : {};
-    const name = isObject(safe.name) ? safe.name : {};
-    if (name.waived) {
-      return { firstName: "", lastName: "", legacyName: "", waived: true };
-    }
-    const en = isObject(name.en) ? name.en : {};
-    const zh = isObject(name.zh) ? name.zh : {};
-    const selected = lang === "zh" ? zh : en;
-    const selectedFirst = cleanString(selected.firstName);
-    const selectedMiddle = cleanString(selected.middleName);
-    const selectedLast = cleanString(selected.lastName);
-    const selectedLegacyName = selectedFirst || selectedMiddle || selectedLast
-      ? ""
-      : cleanString(selected.displayName || (lang === "zh" ? (safe.nameZh || safe.chineseName || safe.zhName) : safe.fullName));
-    return {
-      firstName: selectedFirst,
-      lastName: selectedLast,
-      legacyName: selectedLegacyName,
-      waived: false
-    };
-  }
-
-  function isLocalizedFieldComplete(value, lang) {
-    if (isObject(value) && value.waived) {
-      return true;
-    }
-    return Boolean(resolveLocalizedText(value, lang));
-  }
-
-  function hasAnyLocalizedField(source, keys, lang) {
-    const safe = isObject(source) ? source : {};
-    const fields = ensureArray(keys);
-    for (let index = 0; index < fields.length; index += 1) {
-      if (isLocalizedFieldComplete(safe[fields[index]], lang)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function hasMeaningfulBulletList(value, lang) {
-    const list = ensureArray(value);
-    for (let index = 0; index < list.length; index += 1) {
-      const item = list[index];
-      if (hasNonEmptyString(item)) {
-        return true;
-      }
-      const safeItem = isObject(item) ? item : {};
-      if (safeItem.waived) {
-        continue;
-      }
-      if (resolveLocalizedText(safeItem, lang) || hasNonEmptyString(firstNonEmpty([safeItem.text, safeItem.content, safeItem.summary]))) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function hasSelectedSponsorship(value) {
-    if (typeof value === "boolean") {
-      return true;
-    }
-
-    const text = cleanString(value).toLowerCase();
-    return text === "true" || text === "false" || text === "yes" || text === "no";
-  }
-
-  function hasMeaningfulEducationValue(value, lang) {
-    if (Array.isArray(value)) {
-      for (let index = 0; index < value.length; index += 1) {
-        const item = isObject(value[index]) ? value[index] : {};
-        if (item.waived || item.enabled === false) {
-          continue;
-        }
-        const school = isLocalizedFieldComplete(item.school, lang);
-        const degree = isLocalizedFieldComplete(item.degree, lang);
-        const major = isLocalizedFieldComplete(item.major || item.field || item.fieldOfStudy, lang);
-        if (school && degree && major) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    if (isObject(value)) {
-      if (value.waived || value.enabled === false) {
-        return false;
-      }
-      const school = isLocalizedFieldComplete(value.school, lang);
-      const degree = isLocalizedFieldComplete(value.degree, lang);
-      const major = isLocalizedFieldComplete(value.major || value.field || value.fieldOfStudy, lang);
-      return Boolean(school && degree && major);
-    }
-
-    const text = cleanString(value);
-    if (!text || text === "[]" || text === "{}") {
-      return false;
-    }
-
-    try {
-      const parsed = JSON.parse(text);
-      if (Array.isArray(parsed) || isObject(parsed)) {
-        return hasMeaningfulEducationValue(parsed, lang);
-      }
-      return false;
-    } catch {
-      return false;
-    }
-  }
-
-  function hasMeaningfulSummaryValue(value, lang) {
-    if (Array.isArray(value)) {
-      for (let index = 0; index < value.length; index += 1) {
-        const item = value[index];
-        if (hasNonEmptyString(item)) {
-          return true;
-        }
-
-        const safeItem = isObject(item) ? item : {};
-        if (safeItem.waived || safeItem.enabled === false) {
-          continue;
-        }
-        if (resolveLocalizedText(safeItem.text, lang) || hasNonEmptyString(firstNonEmpty([safeItem.summary, safeItem.content]))) {
-          return true;
-        }
-      }
-      return false;
-    }
-
-    if (isObject(value)) {
-      return hasAnyContent(value, 0);
-    }
-
-    return hasNonEmptyString(value);
-  }
-
-  function hasMeaningfulSkillField(value) {
-    if (Array.isArray(value)) {
-      return hasMeaningfulArrayItem(value);
-    }
-    if (isObject(value)) {
-      return hasAnyContent(value, 0);
-    }
-    return hasNonEmptyString(value);
-  }
-
-  function hasNonEmptyListField(value) {
-    if (Array.isArray(value)) {
-      return hasMeaningfulArrayItem(value);
-    }
-    if (isObject(value)) {
-      return hasAnyContent(value, 0);
-    }
-    return hasNonEmptyString(value);
-  }
-
-  function hasMeaningfulExperienceValue(value, lang) {
-    const list = ensureArray(value);
-    for (let index = 0; index < list.length; index += 1) {
-      const item = isObject(list[index]) ? list[index] : {};
-      if (item.waived || item.enabled === false) {
-        continue;
-      }
-      if (hasAnyLocalizedField(item, ["company", "title", "location", "summary"], lang) || hasAnyNonEmptyInKeys(item, ["startDate", "endDate", "employmentType", "industry"])) {
-        return true;
-      }
-      if (hasMeaningfulBulletList(item.bullets, lang)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function hasMeaningfulProjectValue(value, lang) {
-    const list = ensureArray(value);
-    for (let index = 0; index < list.length; index += 1) {
-      const item = isObject(list[index]) ? list[index] : {};
-      if (item.waived || item.enabled === false) {
-        continue;
-      }
-      if (hasAnyLocalizedField(item, ["name", "role", "organization", "description", "location"], lang) || hasAnyNonEmptyInKeys(item, ["startDate", "endDate"])) {
-        return true;
-      }
-      if (hasMeaningfulBulletList(item.bullets, lang)) {
-        return true;
-      }
-      const links = isObject(item.links) ? item.links : {};
-      if (hasAnyNonEmptyInKeys(links, ["demo", "repo", "other"])) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function hasWaivedItem(value) {
-    const list = ensureArray(value);
-    for (let index = 0; index < list.length; index += 1) {
-      const item = isObject(list[index]) ? list[index] : {};
-      if (item.waived || item.enabled === false) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  function validateProfileResumeComplete(appData) {
+  function validateProfileResumeComplete() {
     return {
       ok: true,
       missingFields: [],

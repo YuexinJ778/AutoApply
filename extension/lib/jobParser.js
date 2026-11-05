@@ -224,8 +224,8 @@
 
   function cleanupSectionLine(line) {
     return cleanString(line)
-      .replace(/^[\-\u2022\*\u25CF\u25E6\u2023\u2043\s]+/, "")
-      .replace(/^\d+[\.)]\s+/, "")
+      .replace(/^[-\u2022*\u25CF\u25E6\u2023\u2043\s]+/, "")
+      .replace(/^\d+[.)]\s+/, "")
       .trim();
   }
 
@@ -310,7 +310,7 @@
 
   function inferTeam(lines) {
     for (const line of lines.slice(0, 100)) {
-      const match = line.match(/^(team|department|organization|org)\s*[:\-]\s*(.+)$/i);
+      const match = line.match(/^(team|department|organization|org)\s*[:-]\s*(.+)$/i);
       if (match && match[2]) {
         return cleanString(match[2]);
       }
@@ -339,7 +339,7 @@
 
       if (segments.length > 0) {
         return segments[0]
-          .replace(/[\-_]+/g, " ")
+          .replace(/[-_]+/g, " ")
           .replace(/\b\w/g, function uppercase(char) {
             return char.toUpperCase();
           })

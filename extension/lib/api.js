@@ -1206,7 +1206,7 @@
       baseName = writer.buildTailoredArtifactBaseName(draft, jobTarget, { prefix: "tailored_resume" });
     }
 
-    var htmlText = "";
+    var htmlText;
 
     try {
       result.stage = STAGES.WRITE_JSON;

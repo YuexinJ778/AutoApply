@@ -14,7 +14,7 @@
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/\"/g, "&quot;")
+      .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
   }
 
@@ -29,13 +29,6 @@
       return enVal || zhVal;
     }
     return "";
-  }
-
-  function normalizeHref(value) {
-    var raw = cleanString(value);
-    if (!raw) return "";
-    if (/^(https?:|mailto:|tel:)/i.test(raw)) return raw;
-    return "https://" + raw.replace(/^\/+/, "");
   }
 
   function mailtoHref(value) {
@@ -373,10 +366,11 @@
       other: { en: "Other", zh: "其他" }
     };
 
+    var html;
     if (Array.isArray(skills.categories)) {
       var active = skills.categories.filter(function(c) { return c && c.enabled !== false && !c.waived; });
       if (!active.length) return "";
-      var html = '<section class="resume-section"><h2 class="resume-section-title">' + escapeHtml(sectionTitle("skills", lang)) + '</h2>';
+      html = '<section class="resume-section"><h2 class="resume-section-title">' + escapeHtml(sectionTitle("skills", lang)) + '</h2>';
       active.forEach(function(cat) {
         var category = resolveText(cat.category, lang);
         var items = Array.isArray(cat.items) ? cat.items.filter(Boolean).join(", ") : "";
@@ -399,7 +393,7 @@
     });
 
     if (!rows.length) return "";
-    var html = '<section class="resume-section"><h2 class="resume-section-title">' + escapeHtml(sectionTitle("skills", lang)) + '</h2>';
+    html = '<section class="resume-section"><h2 class="resume-section-title">' + escapeHtml(sectionTitle("skills", lang)) + '</h2>';
     rows.forEach(function(row) {
       html += '<div class="resume-skill-row">';
       html += '<span class="resume-skill-category">' + escapeHtml(row.label) + ": </span>";

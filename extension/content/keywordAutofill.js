@@ -673,7 +673,7 @@
     if (!id) {
       return "";
     }
-    const selector = "label[for=\"" + id.replace(/\\/g, "\\\\").replace(/\"/g, '\\\"') + "\"]";
+    const selector = "label[for=\"" + id.replace(/\\/g, "\\\\").replace(/"/g, '\\"') + "\"]";
     const label = document.querySelector(selector);
     return cleanString(label && label.textContent);
   }

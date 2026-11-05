@@ -146,11 +146,6 @@
     "legalFirstName",
     "legalLastName"
   ]);
-  const SF_HSBC_REQUIRED_SELECTORS = Object.freeze([
-    "form#careerform",
-    "#fieldsContainer",
-    "#rcmQuickApplyAttachmentCtr"
-  ]);
   const SF_HSBC_FIELD_ID_RULES = Object.freeze({
     fbclc_username: { key: "email", reason: "SF_HSBC_ID_EMAIL" },
     fbclc_emailconf: { key: "email", reason: "SF_HSBC_ID_RETYPE_EMAIL" }
@@ -257,7 +252,7 @@
   function normalizeLoose(value) {
     const text = cleanString(value)
       .replace(/[\u200B-\u200D\uFEFF]/g, "")
-      .replace(/[：:＊*，,。；;！？!？【】\[\]（）()《》<>]/g, " ")
+      .replace(/[：:＊*，,。；;！？!？【】[\]（）()《》<>]/g, " ")
       .toLowerCase();
 
     return text.replace(/[\s_./\\'"`~!@#$%^&?+=|-]+/g, " ").trim();
@@ -2336,23 +2331,11 @@
     let keywordFillResults = [];
     let fillResults = [];
     let keywordAutofillResult = null;
-    let uploadResult = {
-      ok: false,
-      message: "Upload step not executed.",
-      reason: "UPLOAD_STEP_NOT_EXECUTED"
-    };
-    let preSubmitCheck = {
-      ok: false,
-      canSubmit: false,
-      missingRequiredFields: [],
-      unknownRequiredFields: [],
-      pageValidationErrors: [],
-      warnings: ["Validation step not executed."]
-    };
+    let uploadResult;
+    let preSubmitCheck;
 
     let applicationRecord = null;
     let savedRecord = null;
-    let recordError = "";
     let pageLanguage = "unknown";
 
     try {
@@ -2590,7 +2573,7 @@
         resumeId: applicationRecord.resumeId || ""
       });
     } catch (error) {
-      recordError = error instanceof Error ? error.message : String(error);
+      const recordError = error instanceof Error ? error.message : String(error);
       errors.push("buildApplicationRecord failed: " + recordError);
     }
 

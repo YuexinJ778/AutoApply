@@ -127,7 +127,7 @@
       var school = cleanString(item.school);
       var degree = cleanString(item.degree);
       var major = cleanString(item.major || item.field || item.fieldOfStudy || item.majorName);
-      var coursework = "";
+      var coursework;
       if (Array.isArray(item.coursework)) {
         coursework = toStringArray(item.coursework, 24).join(", ");
       } else if (Array.isArray(item.relevantCoursework)) {

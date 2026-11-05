@@ -3,7 +3,6 @@
 
   const shared = globalThis.Stage3Shared;
   const storage = globalThis.Stage3Storage;
-  const messaging = globalThis.Stage5Messaging;
   const api = globalThis.Stage5Api;
   const appDataStore = globalThis.Stage10AppDataStore;
   const dataBoundary = globalThis.Stage11DataBoundary;
@@ -104,7 +103,6 @@
   const uploadResumeFileInputEl = document.getElementById("upload-resume-file-input");
   const uploadResumeStatusEl = document.getElementById("upload-resume-status");
   const uploadResumeErrorEl = document.getElementById("upload-resume-error");
-  const uploadResumePdfPreviewWrapEl = document.getElementById("upload-resume-pdf-preview-wrap");
   const uploadResumePdfNavEl = document.getElementById("upload-resume-pdf-nav");
   const uploadResumePdfPageInfoEl = document.getElementById("upload-resume-pdf-page-info");
   const uploadResumePdfPrevBtn = document.getElementById("upload-resume-pdf-prev-btn");
@@ -140,29 +138,7 @@
   const MAX_UPLOAD_RESUME_IMPORT_ROUNDS = 120;
   const MAX_UPLOAD_RESUME_AI_ATTEMPTS = 3;
   const MAX_SELF_CHECK_REJECTIONS_PER_STEP = 3;
-  const REQUIRED_PROFILE_RESUME_FIELDS = Object.freeze([
-    { key: "first_name", label: "First Name" },
-    { key: "last_name", label: "Last Name" },
-    { key: "email", label: "Email" },
-    { key: "phone", label: "Phone" },
-    { key: "location", label: "Location" },
-    { key: "summary", label: "Summary" },
-    { key: "education", label: "Education" },
-    { key: "experiences", label: "Experiences" },
-    { key: "projects", label: "Projects" },
-    { key: "languages", label: "Languages" },
-    { key: "frameworks", label: "Frameworks" },
-    { key: "tools", label: "Tools" }
-  ]);
-  const REQUIRED_INPUT_WAIVER_BINDINGS = Object.freeze([
-    { key: "first_name", inputId: "profile-firstName", label: "First Name" },
-    { key: "last_name", inputId: "profile-lastName", label: "Last Name" },
-    { key: "email", inputId: "profile-email", label: "Email" },
-    { key: "phone", inputId: "profile-phone", label: "Phone" },
-    { key: "location", inputId: "profile-location", label: "Location" }
-  ]);
-
-  const PROFILE_RESUME_AI_INITIAL_MESSAGE = "Hi, I can help edit your resume. Tell me what you want to change.";
+ const PROFILE_RESUME_AI_INITIAL_MESSAGE = "Hi, I can help edit your resume. Tell me what you want to change.";
   const APPLICATION_GUIDANCE_STEPS = [
     {
       guidanceType: "job-summary",
@@ -414,33 +390,12 @@
     return Array.isArray(value) ? value : [];
   }
 
-  function toComparableUrl(url) {
-    const raw = cleanString(url);
-    if (!raw) {
-      return "";
-    }
-
-    try {
-      const parsed = new URL(raw);
-      const pathname = cleanString(parsed.pathname).replace(/\/$/, "");
-      return parsed.origin.toLowerCase() + pathname + parsed.search;
-    } catch {
-      return raw.replace(/\/$/, "").toLowerCase();
-    }
-  }
-
-  function urlsMatch(left, right) {
-    const a = toComparableUrl(left);
-    const b = toComparableUrl(right);
-    return Boolean(a && b && a === b);
-  }
-
   function escapeHtml(value) {
     return cleanString(value)
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/\"/g, "&quot;")
+      .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
   }
 
@@ -465,23 +420,6 @@
     }
 
     return output;
-  }
-
-  function parseCommaList(text) {
-    return uniqueStringArray(String(text || "").split(",").map((item) => item.trim()));
-  }
-
-  function toCommaList(values) {
-    return uniqueStringArray(values).join(", ");
-  }
-
-  function parseBoolean(value) {
-    if (typeof value === "boolean") {
-      return value;
-    }
-
-    const lowered = cleanString(value).toLowerCase();
-    return lowered === "true" || lowered === "yes" || lowered === "1";
   }
 
   function buildDisplayName(firstNameInput, middleNameInput, lastNameInput, lang) {
@@ -1022,24 +960,6 @@
     }
   }
 
-  function detectLanguageFromText() {
-    const combined = Array.from(arguments).map(cleanString).join(" ");
-    if (!combined) return "en";
-    const zhMatches = combined.match(/[\u3400-\u9fff]/g) || [];
-    const compactLength = combined.replace(/\s/g, "").length;
-    if (zhMatches.length >= 20) return "zh";
-    if (compactLength && zhMatches.length / compactLength > 0.08) return "zh";
-    return "en";
-  }
-
-  function findCanonicalApplication(applicationId) {
-    const target = cleanString(applicationId);
-    const applications = getCanonicalApplications();
-    return applications.find(function findApp(item) {
-      return cleanString(item && (item.applicationId || item.id)) === target;
-    }) || null;
-  }
-
   function resolveDualProfileResumeSnapshot(appData) {
     const dual = appData && typeof appData === "object"
       ? normalizeDualResumeState(appData)
@@ -1172,45 +1092,6 @@
     return new Date(parsed).toISOString().slice(0, 10);
   }
 
-  function normalizeRequiredFieldWaivers(input) {
-    const source = input && typeof input === "object" ? input : {};
-    const legacyFullNameWaived = parseBoolean(source.full_name);
-    const output = {};
-    REQUIRED_PROFILE_RESUME_FIELDS.forEach(function eachField(field) {
-      const key = cleanString(field.key).toLowerCase();
-      const fromSource = parseBoolean(source[field.key]);
-      if (key === "first_name" || key === "last_name") {
-        output[key] = fromSource || legacyFullNameWaived;
-        return;
-      }
-      output[key] = fromSource;
-    });
-    return output;
-  }
-
-  function getRequiredFieldWaiversFromState() {
-    const settings = state.settings && typeof state.settings === "object"
-      ? state.settings
-      : state.appData && state.appData.settings && typeof state.appData.settings === "object"
-        ? state.appData.settings
-        : {};
-    return normalizeRequiredFieldWaivers(settings.requiredFieldWaivers);
-  }
-
-  function updateWaiverStatusNode(statusNode, isWaived) {
-    if (!statusNode) return;
-    const labels = UI_LABELS[editorLang] || UI_LABELS.en;
-    statusNode.textContent = "";
-  }
-
-  function safeJsonParse(text, fallbackValue) {
-    try {
-      return JSON.parse(String(text || ""));
-    } catch {
-      return fallbackValue;
-    }
-  }
-
   function createId(prefix) {
     if (appDataStore && typeof appDataStore.createId === "function") {
       return appDataStore.createId(prefix);
@@ -1231,7 +1112,7 @@
     }
 
     const token = hashRaw.startsWith("#") ? hashRaw.slice(1) : hashRaw;
-    let decoded = "";
+    let decoded;
 
     try {
       decoded = cleanString(decodeURIComponent(token)).toLowerCase();
@@ -1366,16 +1247,6 @@
       width: testCanvasEl.clientWidth || 794,
       height: testCanvasEl.clientHeight || 1123
     };
-  }
-
-  function selectTestObject(objectId) {
-    state.testSandbox.selectedObjectId = cleanString(objectId);
-    if (state.testSandbox.editingTextId !== state.testSandbox.selectedObjectId) {
-      state.testSandbox.editingTextId = null;
-      state.testSandbox.originalTextBeforeEdit = "";
-      state.testSandbox.draftText = "";
-    }
-    renderTestSandbox();
   }
 
   function clearTestSelection() {
@@ -1848,13 +1719,6 @@
     return { en: "", zh: "", waived: false };
   }
 
-  function readBilingualForEditor(field, lang) {
-    const value = resolveBilingual(field);
-    const selected = lang === "zh" ? value.zh : value.en;
-    const other = lang === "zh" ? value.en : value.zh;
-    return selected;
-  }
-
   function buildBilingualValue(previous, nextValue, lang, options) {
     const base = resolveBilingual(previous);
     const waived = Boolean(options && options.waived);
@@ -1911,38 +1775,8 @@
     };
   }
 
-  function buildBilingualNameValue(previousProfile, nextParts, lang, options) {
-    const base = resolveBilingualName(previousProfile);
-    const parts = normalizeNameParts(nextParts);
-    const waived = Boolean(options && options.waived);
-    const next = {
-      en: { ...base.en },
-      zh: { ...base.zh },
-      waived: waived
-    };
-    if (lang === "zh") {
-      next.zh = { ...parts };
-    } else {
-      next.en = { ...parts };
-    }
-    return next;
-  }
-
-  function getOtherLanguagePlaceholder(field, lang, fallback) {
-    const value = resolveBilingual(field);
-    const other = lang === "zh" ? value.en : value.zh;
-    if (other) {
-      return lang === "zh" ? "English content: " + other : "Chinese content: " + other;
-    }
-    return fallback || "";
-  }
-
-  function bilingualToolsHtml(field, key) {
+  function bilingualToolsHtml() {
     return "";
-  }
-
-  function collectFieldWaived(card, field) {
-    return false;
   }
 
   function createSummaryCard(summary) {
@@ -2133,20 +1967,6 @@
     return card;
   }
 
-  function collectFieldValue(card, field) {
-    const el = card.querySelector('[data-field="' + field + '"]');
-    return el ? cleanString(el.value) : "";
-  }
-
-  function collectFieldChecked(card, field) {
-    const el = card.querySelector('[data-field="' + field + '"]');
-    return !el || el.checked !== false;
-  }
-
-  function collectItemWaived(card) {
-    return false;
-  }
-
   function lineTypeLabel(type) {
     if (type === "title") return L("lineTitle");
     if (type === "date") return L("lineDate");
@@ -2264,14 +2084,6 @@
     return card;
   }
 
-  function collectResumeFieldFromCard(card, field) {
-    const valueNode = card.querySelector('[data-resume-field="' + field + '"]');
-    return {
-      value: valueNode && "value" in valueNode ? cleanString(valueNode.value) : "",
-      waived: false
-    };
-  }
-
   function collectContactLinksFromForm() {
     const rows = profileLinksListEl ? Array.from(profileLinksListEl.querySelectorAll(".contact-link-row")) : [];
     return rows.map(function mapLink(row, index) {
@@ -2315,42 +2127,6 @@
         })
       }, sectionIndex);
     });
-  }
-
-  function collectBilingualField(card, field) {
-    const en = collectFieldValue(card, field + ".en");
-    const zh = collectFieldValue(card, field + ".zh");
-    return {
-      en: en,
-      zh: zh,
-      waived: collectFieldWaived(card, field)
-    };
-  }
-
-  function collectEducationCards() {
-    const cards = educationListEl ? Array.from(educationListEl.querySelectorAll(".education-card")) : [];
-
-    return cards.map((card) => ({
-      id: cleanString(card.dataset.id) || createId("edu"),
-      school: collectBilingualField(card, "school"),
-      degree: collectBilingualField(card, "degree"),
-      major: collectBilingualField(card, "major"),
-      location: collectBilingualField(card, "location"),
-      startDate: collectFieldValue(card, "startDate"),
-      endDate: collectFieldValue(card, "endDate"),
-      gpa: collectFieldValue(card, "gpa"),
-      coursework: collectBilingualField(card, "coursework"),
-      description: collectBilingualField(card, "description"),
-      enabled: !collectItemWaived(card),
-      waived: collectItemWaived(card)
-    })).filter((item) => (
-      item.school.en || item.school.zh ||
-      item.degree.en || item.degree.zh ||
-      item.major.en || item.major.zh ||
-      item.location.en || item.location.zh ||
-      item.startDate || item.endDate ||
-      item.gpa || item.coursework.en || item.coursework.zh || item.description.en || item.description.zh
-    ));
   }
 
   function migrateEducationValue(value) {
@@ -2433,18 +2209,6 @@
     if (node) {
       node.value = cleanString(value);
     }
-  }
-
-  function ensureInlineWaiverControl(binding) {
-    return null;
-  }
-
-  function updateInlineWaiverPresentation(toggle) {
-    return;
-  }
-
-  function getProfileNameWaivedChecked() {
-    return false;
   }
 
   function syncProfileResumeFormIntoState(languageOverride) {
@@ -2873,7 +2637,7 @@
       current = normalizeResumeObject(ensureDualResumeState().resumes[lang], lang);
     }
     const header = current.header || createEmptyHeader();
-    function headerField(inputId, key) {
+    function headerField(inputId) {
       return normalizeResumeField({
         value: getInputValue(inputId),
         waived: false
@@ -2942,115 +2706,6 @@
       email: activeResume.header.email.value,
       phone: activeResume.header.phone.value,
       location: buildBilingualValue(previousProfile.location, activeResume.header.location.value, lang, { waived: false })
-    };
-  }
-
-  function collectSummaryCards() {
-    const cards = summaryListEl ? Array.from(summaryListEl.querySelectorAll(".summary-card")) : [];
-
-    return cards.map((card) => ({
-      id: cleanString(card.dataset.id) || createId("summary"),
-      label: collectBilingualField(card, "label"),
-      text: collectBilingualField(card, "text"),
-      isDefault: Boolean(card.querySelector('[data-field="isDefault"]') && card.querySelector('[data-field="isDefault"]').checked),
-      enabled: !collectItemWaived(card),
-      waived: collectItemWaived(card)
-    })).filter((item) => item.text.en || item.text.zh || item.label.en || item.label.zh);
-  }
-
-  function collectExperienceCards() {
-    const cards = experienceListEl ? Array.from(experienceListEl.querySelectorAll(".experience-card")) : [];
-
-    return cards.map((card) => {
-      const bulletsEnLines = String(collectFieldValue(card, "bullets.en")).split("\n").map(cleanString);
-      const bulletsZhLines = String(collectFieldValue(card, "bullets.zh")).split("\n").map(cleanString);
-      while (bulletsZhLines.length < bulletsEnLines.length) bulletsZhLines.push("");
-      while (bulletsEnLines.length < bulletsZhLines.length) bulletsEnLines.push("");
-      const bulletsWaived = collectFieldWaived(card, "bullets");
-
-      const bullets = bulletsEnLines.map((en, i) => {
-        const zh = cleanString(bulletsZhLines[i]);
-        const shared = cleanString(en) || zh;
-        return {
-          id: createId("exp_bullet"),
-          en: cleanString(en),
-          zh: zh,
-          text: cleanString(en),
-          enabled: true,
-          waived: bulletsWaived
-        };
-      }).filter((bullet) => bullet.en || bullet.zh);
-
-      return {
-        id: cleanString(card.dataset.id) || createId("exp"),
-        company: collectBilingualField(card, "company"),
-        title: collectBilingualField(card, "title"),
-        location: collectBilingualField(card, "location"),
-        startDate: collectFieldValue(card, "startDate"),
-        endDate: collectFieldValue(card, "endDate"),
-        enabled: !collectItemWaived(card),
-        waived: collectItemWaived(card),
-        bullets: bullets
-      };
-    }).filter((item) => item.company.en || item.company.zh || item.title.en || item.title.zh || item.location.en || item.location.zh || item.bullets.length);
-  }
-
-  function collectProjectCards() {
-    const cards = projectListEl ? Array.from(projectListEl.querySelectorAll(".project-card")) : [];
-
-    return cards.map((card) => {
-      const bulletsEnLines = String(collectFieldValue(card, "bullets.en")).split("\n").map(cleanString);
-      const bulletsZhLines = String(collectFieldValue(card, "bullets.zh")).split("\n").map(cleanString);
-      while (bulletsZhLines.length < bulletsEnLines.length) bulletsZhLines.push("");
-      while (bulletsEnLines.length < bulletsZhLines.length) bulletsEnLines.push("");
-      const bulletsWaived = collectFieldWaived(card, "bullets");
-
-      const bullets = bulletsEnLines.map((en, i) => {
-        const zh = cleanString(bulletsZhLines[i]);
-        const shared = cleanString(en) || zh;
-        return {
-          id: createId("proj_bullet"),
-          en: cleanString(en),
-          zh: zh,
-          text: cleanString(en),
-          enabled: true,
-          waived: bulletsWaived
-        };
-      }).filter((bullet) => bullet.en || bullet.zh);
-
-      return {
-        id: cleanString(card.dataset.id) || createId("proj"),
-        name: collectBilingualField(card, "name"),
-        role: collectBilingualField(card, "role"),
-        organization: collectBilingualField(card, "organization"),
-        location: collectBilingualField(card, "location"),
-        startDate: collectFieldValue(card, "startDate"),
-        endDate: collectFieldValue(card, "endDate"),
-        enabled: !collectItemWaived(card),
-        waived: collectItemWaived(card),
-        bullets: bullets
-      };
-    }).filter((item) => item.name.en || item.name.zh || item.role.en || item.role.zh || item.organization.en || item.organization.zh || item.location.en || item.location.zh || item.bullets.length);
-  }
-
-  function collectMasterResumeFromForm() {
-    const previous = state.appData && state.appData.masterResume && typeof state.appData.masterResume === "object"
-      ? state.appData.masterResume
-      : {};
-
-    return {
-      ...previous,
-      summaries: collectSummaryCards(),
-      experiences: collectExperienceCards(),
-      projects: collectProjectCards(),
-      education: collectEducationCards(),
-      skills: {
-        ...(previous.skills && typeof previous.skills === "object" ? previous.skills : {}),
-        languages: parseCommaList(getInputValue("skills-languages")),
-        frameworks: parseCommaList(getInputValue("skills-frameworks")),
-        tools: parseCommaList(getInputValue("skills-tools")),
-        other: parseCommaList(getInputValue("skills-other"))
-      }
     };
   }
 
@@ -3191,93 +2846,6 @@
   }
 
   function renderGuidancePanel() {
-  }
-
-  async function patchApplicationGuidance(guidance) {
-    const canonical = await getCanonicalDataForMutation();
-    const applications = Array.isArray(canonical.applications) ? canonical.applications.slice() : [];
-    const targetId = cleanString(state.applicationResumeEditor && state.applicationResumeEditor.applicationId);
-    const targetIndex = applications.findIndex((item) => cleanString(item && (item.applicationId || item.id)) === targetId);
-    if (targetIndex < 0) {
-      return;
-    }
-    applications[targetIndex] = {
-      ...applications[targetIndex],
-      resumeGuidance: guidance,
-      updatedAt: new Date().toISOString()
-    };
-    await saveCanonicalDataPatch({ applications: applications });
-    if (state.applicationResumeEditor) {
-      state.applicationResumeEditor.application = applications[targetIndex];
-    }
-  }
-
-  async function generateGuidance() {
-    if (state.guidanceLoading) {
-      return;
-    }
-    if (!state.applicationResumeEditor) {
-      return;
-    }
-
-    const app = state.applicationResumeEditor.application || {};
-    const canonicalData = await getCanonicalDataForMutation();
-    const storageSettings = storage && typeof storage.getSettings === "function" ? await storage.getSettings() : {};
-    const settings = {
-      ...(canonicalData && canonicalData.settings && typeof canonicalData.settings === "object" ? canonicalData.settings : {}),
-      ...(storageSettings && typeof storageSettings === "object" ? storageSettings : {})
-    };
-
-    const resolved = resolveSettingsProvider(settings, null);
-    if (!resolved.apiKey || !resolved.provider) {
-      state.guidanceError = "AI guidance is unavailable because no model provider is configured.";
-      state.guidanceLoading = false;
-      renderGuidancePanel();
-      return;
-    }
-
-    const hasJobContent = Boolean(
-      cleanString(app.jobDescriptionText) || cleanString(app.descriptionText) || cleanString(app.pageText) || cleanString(app.pageTitle)
-    );
-    if (!hasJobContent) {
-      state.guidanceError = "No saved job description is available for this application.";
-      state.guidanceLoading = false;
-      renderGuidancePanel();
-      return;
-    }
-
-    state.guidanceLoading = true;
-    state.guidanceError = "";
-    renderGuidancePanel();
-
-    try {
-      if (!api || typeof api.generateJobGuidance !== "function") {
-        throw new Error("Guidance API is unavailable.");
-      }
-      const result = await api.generateJobGuidance({
-        application: app,
-        resumeDraft: collectActiveResumeFromForm(getResumeLanguage()),
-        settings: settings
-      });
-      if (!result || result.ok !== true) {
-        const errCode = cleanString(result && result.error);
-        if (errCode === "no_provider") {
-          state.guidanceError = "AI guidance is unavailable because no model provider is configured.";
-        } else if (errCode === "no_job_content") {
-          state.guidanceError = "No saved job description is available for this application.";
-        } else {
-          state.guidanceError = "Failed to generate job guidance. You can try again.";
-        }
-      } else {
-        state.guidanceError = "";
-        await patchApplicationGuidance(result.guidance);
-      }
-    } catch {
-      state.guidanceError = "Failed to generate job guidance. You can try again.";
-    }
-
-    state.guidanceLoading = false;
-    renderGuidancePanel();
   }
 
   function renderResume() {
@@ -3574,7 +3142,7 @@
       .replace(/```[\s\S]*?```/g, " ")
       .replace(/`([^`]*)`/g, "$1")
       .replace(/\[([^\]]*)\]\(([^)]*)\)/g, "$1")
-      .replace(/[#>*_\-\[\]]+/g, " ")
+      .replace(/[#>*_\-[\]]+/g, " ")
       .replace(/\s+/g, " ")
       .trim();
   }
@@ -3859,11 +3427,6 @@
     return cleanString(title) + "\n\n" + (body || "No guidance available.");
   }
 
-  function formatGuidanceListMessage(title, items) {
-    const list = Array.isArray(items) ? items.map(cleanString).filter(Boolean) : [];
-    return formatGuidanceMessage(title, list.length ? list.map(function(item) { return "- " + item; }).join("\n") : "");
-  }
-
   function buildProfileResumeAiMessages() {
     return [{ role: "assistant", text: PROFILE_RESUME_AI_INITIAL_MESSAGE }];
   }
@@ -4105,7 +3668,9 @@
         await patchApplicationGuidanceField(step, content);
         return content;
       }
-    } catch {}
+    } catch {
+      // Use the step fallback if the provider request or persistence fails.
+    }
     return getGuidanceFallbackContent(step, currentResumeHasContent);
   }
 
@@ -4309,7 +3874,7 @@
         return;
       }
       await appendNotesAiMessage("assistant", cleanString(result.answer) || "I do not see enough local notes to answer that confidently.");
-    } catch (_err) {
+    } catch {
       state.notesPage.isThinking = false;
       await appendNotesAiMessage("assistant", "Failed to answer based on notes. Please try again.");
     } finally {
@@ -4454,7 +4019,9 @@
       if (result && result.ok === true && cleanString(result.summary)) {
         return cleanString(result.summary);
       }
-    } catch {}
+    } catch {
+      // Keep the local summary when provider summarization fails.
+    }
     return NOTES_AI_EXPORT_FALLBACK_SUMMARY;
   }
 
@@ -4823,7 +4390,7 @@
 
   function releasePdfPreviewDoc() {
     if (_pdfPreviewDoc) {
-      try { _pdfPreviewDoc.destroy(); } catch (_e) {}
+      try { _pdfPreviewDoc.destroy(); } catch { /* The preview may already be destroyed. */ }
       _pdfPreviewDoc = null;
     }
   }
@@ -4900,7 +4467,8 @@
     const totalChars = normalized.length || 1;
     const printableAsciiCount = (normalized.match(/[\x20-\x7E]/g) || []).length;
     const asciiPrintableRatio = printableAsciiCount / totalChars;
-    const suspiciousChars = (normalized.match(/[^\x09\x0A\x0D\x20-\x7E -ɏ‐-‧‰-⁯]/g) || []).length;
+    // eslint-disable-next-line no-control-regex -- Tabs and line endings are valid extracted text, not corruption.
+    const suspiciousChars = (normalized.match(/[^\x09\x0A\x0D\x20-\x7E\u00A0-ɏ‐-‧‰-⁯]/g) || []).length;
     const suspiciousCharacterRatio = suspiciousChars / totalChars;
     const symbolOnlyWords = (normalized.match(/[^A-Za-z0-9\s]{3,}/g) || []).length;
     const repeatedSymbolRatio = totalChars ? symbolOnlyWords * 4 / totalChars : 0;
@@ -5046,13 +4614,16 @@
         if (buffer && buffer.byteLength) {
           return new Uint8Array(buffer);
         }
-      } catch (_err) {}
+      } catch {
+        // Try the next supported compression format.
+      }
     }
     return null;
   }
 
   function normalizeExtractedPdfText(value) {
     return String(value || "")
+      // eslint-disable-next-line no-control-regex -- Remove embedded NUL characters from extracted PDF text.
       .replace(/\u0000/g, "")
       .replace(/[ \t]+\n/g, "\n")
       .replace(/\n[ \t]+/g, "\n")
@@ -5148,7 +4719,9 @@
       if (pdfJsResult && pdfJsResult.ok) {
         return pdfJsResult;
       }
-    } catch (_err) {}
+    } catch {
+      // Fall back to the embedded PDF stream extractor.
+    }
 
     const bytes = new Uint8Array(arrayBuffer);
     const binary = bytesToBinaryString(bytes);
@@ -5244,10 +4817,6 @@
     return !(lineCount > 0 && sectionLikeLines / lineCount > 0.75);
   }
 
-  function isCorruptedResumeExtractionText(value) {
-    return detectCorruptedExtraction(value);
-  }
-
   function isMarkdownUsable(markdown, plainText) {
     const cleanMarkdown = cleanString(markdown);
     if (!cleanMarkdown) return false;
@@ -5287,7 +4856,7 @@
       if (typeof opts.onAttempt === "function") {
         opts.onAttempt(attempt, maxAttempts, lastReason);
       }
-      let result = null;
+      let result;
       try {
         result = await opts.run(attempt, lastReason);
       } catch (error) {
@@ -5318,9 +4887,9 @@
     const capabilities = getUploadResumeProviderCapabilities();
     const providerName = cleanString(capabilities.provider).toLowerCase();
     let plainText = "";
-    let extractionSource = "";
-    let plainTextStats = null;
-    let combinedWarnings = [];
+    let extractionSource;
+    let plainTextStats;
+    let combinedWarnings;
 
     if (capabilities.supportsDirectPdfTextExtraction) {
       if (!api || typeof api.extractResumePlainTextFromPdf !== "function") {
@@ -6270,7 +5839,7 @@
       let batchToExecute = activeFunctionCalls;
       let batchProgress = uploadState.progress;
       let selfCheckRejectionCount = 0;
-      let executed = null;
+      let executed;
 
       while (true) {
         executed = await executeUploadResumeFunctionBatch(batchToExecute, markdown, batchProgress, settings, lang, isAppMode);
@@ -6562,7 +6131,7 @@
       let localResult;
       try {
         localResult = await extractTextFromPdfFile(file);
-      } catch (_err) {
+      } catch {
         localResult = { plainText: "", pageCount: 0, characterCount: 0, lineCount: 0, warnings: [] };
       }
       if (isUploadResumeCancelled()) {
@@ -6751,7 +6320,9 @@
     setTimeout(function revokePreviewUrl() {
       try {
         URL.revokeObjectURL(safeUrl);
-      } catch (_e) {}
+      } catch {
+        // The object URL may already have been released.
+      }
     }, 300000);
   }
 
@@ -6776,7 +6347,9 @@
     if (objectUrl) {
       try {
         URL.revokeObjectURL(objectUrl);
-      } catch (_e) {}
+      } catch {
+        // The object URL may already have been released.
+      }
     }
     currentResumePdfArtifact = null;
   }
@@ -6851,7 +6424,7 @@
         updatePreviewScale();
       }
       setResumePreviewState("");
-    } catch (_e) {
+    } catch {
       if (generationId !== previewGenerationSeq) {
         return;
       }
@@ -7237,50 +6810,6 @@
     return null;
   }
 
-  function showGenerateGuardFailure(guardResult) {
-    const safe = guardResult && typeof guardResult === "object" ? guardResult : {};
-    const mainMessage = cleanString(safe.mainMessage);
-    const supportingMessage = cleanString(safe.supportingMessage);
-    const code = cleanString(safe.code);
-
-    const fullStatus = mainMessage + (supportingMessage ? " — " + supportingMessage : "");
-    if (fullStatus) {
-      setStatus(fullStatus);
-    }
-
-    if (code === "INCOMPLETE_PROFILE_RESUME") {
-      setActiveTab("profile-resume");
-    }
-  }
-
-  function normalizeGenerateResult(result) {
-    const safe = result && typeof result === "object" ? result : {};
-    const payload = safe.data && typeof safe.data === "object" ? safe.data : safe;
-    return {
-      company: cleanString(payload.company),
-      role: cleanString(payload.role),
-      jobUrl: cleanString(payload.jobUrl),
-      jsonPath: cleanString(payload.jsonPath || safe.jsonPath),
-      htmlPath: cleanString(payload.htmlPath || safe.htmlPath),
-      pdfPath: cleanString(payload.pdfPath || safe.pdfPath)
-    };
-  }
-
-  function inferMimeTypeFromFileName(fileName) {
-    const safeName = cleanString(fileName).toLowerCase();
-    if (safeName.endsWith(".pdf")) return "application/pdf";
-    if (safeName.endsWith(".html") || safeName.endsWith(".htm")) return "text/html";
-    if (safeName.endsWith(".json")) return "application/json";
-    return "application/octet-stream";
-  }
-
-  function fileNameFromStoragePath(storagePath) {
-    const safePath = cleanString(storagePath);
-    if (!safePath) return "";
-    const parts = safePath.split("/");
-    return cleanString(parts[parts.length - 1]);
-  }
-
   function bytesToBase64(bytes) {
     let binary = "";
     for (let index = 0; index < bytes.length; index += 1) {
@@ -7293,281 +6822,6 @@
     const text = String(value || "");
     const encoder = new TextEncoder();
     return bytesToBase64(encoder.encode(text));
-  }
-
-  function getLocalStorageValue(key) {
-    return new Promise((resolve, reject) => {
-      if (!chrome.storage || !chrome.storage.local) {
-        resolve(null);
-        return;
-      }
-
-      chrome.storage.local.get([key], (payload) => {
-        if (chrome.runtime && chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        resolve(payload && Object.prototype.hasOwnProperty.call(payload, key) ? payload[key] : null);
-      });
-    });
-  }
-
-  async function saveGeneratedResumeInternally(input) {
-    const safe = input && typeof input === "object" ? input : {};
-    const currentJob = safe.currentJob && typeof safe.currentJob === "object" ? safe.currentJob : {};
-    const generated = safe.generated && typeof safe.generated === "object" ? safe.generated : {};
-    const createdAt = cleanString(safe.createdAt) || new Date().toISOString();
-    const updatedAt = createdAt;
-
-    const preferredPath = cleanString(generated.pdfPath || generated.htmlPath || generated.jsonPath);
-    let storageRecord = null;
-    if (preferredPath) {
-      try {
-        const stored = await getLocalStorageValue(preferredPath);
-        storageRecord = stored && typeof stored === "object" ? stored : null;
-      } catch {
-        storageRecord = null;
-      }
-    }
-
-    let fileName = cleanString(storageRecord && storageRecord.filename) || fileNameFromStoragePath(preferredPath) || "tailored_resume.pdf";
-    let mimeType = cleanString(storageRecord && storageRecord.mimeType) || inferMimeTypeFromFileName(fileName);
-    let storageRef = cleanString(storageRecord && storageRecord.storageKey) || preferredPath;
-    let resumeDraftId = "resume-draft-" + String(Date.now()) + "-" + Math.random().toString(36).slice(2, 8);
-    let registryDataBase64 = "";
-
-    if (storageRecord && Object.prototype.hasOwnProperty.call(storageRecord, "content")) {
-      if (mimeType === "application/pdf") {
-        registryDataBase64 = cleanString(storageRecord.content);
-      } else {
-        registryDataBase64 = textToBase64(storageRecord.content);
-      }
-    }
-
-    if (
-      resumeRegistryStore &&
-      typeof resumeRegistryStore.saveCompiledResumeRecord === "function" &&
-      fileName &&
-      mimeType &&
-      registryDataBase64
-    ) {
-      const savedRecord = await resumeRegistryStore.saveCompiledResumeRecord({
-        jobId: cleanString(currentJob.jobId),
-        company: cleanString(currentJob.company),
-        role: cleanString(currentJob.title),
-        fileName: fileName,
-        mimeType: mimeType,
-        storageKey: storageRef,
-        dataBase64: registryDataBase64,
-        createdAt: createdAt
-      });
-
-      resumeDraftId = cleanString(savedRecord && savedRecord.resumeId) || resumeDraftId;
-      fileName = cleanString(savedRecord && savedRecord.fileName) || fileName;
-      mimeType = cleanString(savedRecord && savedRecord.mimeType) || mimeType;
-      storageRef = cleanString(savedRecord && savedRecord.storageKey) || storageRef;
-    }
-
-    const draftRecord = {
-      id: resumeDraftId,
-      resumeDraftId: resumeDraftId,
-      jobId: cleanString(currentJob.jobId),
-      company: cleanString(currentJob.company),
-      role: cleanString(currentJob.title),
-      jobUrl: cleanString(currentJob.url),
-      fileName: fileName,
-      mimeType: mimeType,
-      storageRef: storageRef,
-      createdAt: createdAt,
-      updatedAt: updatedAt,
-      exportedFiles: {
-        json: cleanString(generated.jsonPath),
-        html: cleanString(generated.htmlPath),
-        pdf: cleanString(generated.pdfPath)
-      }
-    };
-
-    await appDataStore.appendGeneratedResume(draftRecord);
-    return draftRecord;
-  }
-
-  function pickResumeDraftTimestamp(record) {
-    const safe = record && typeof record === "object" ? record : {};
-    return new Date(cleanString(safe.updatedAt) || cleanString(safe.createdAt) || 0).getTime() || 0;
-  }
-
-  function findLatestResumeDraftForApplicationRow(row) {
-    const safeRow = row && typeof row === "object" ? row : {};
-    const resumeId = cleanString(safeRow.resumeId);
-    const jobId = cleanString(safeRow.jobId);
-    const jobUrl = cleanString(safeRow.jobUrl);
-    const generatedResumes = Array.isArray(state.appData && state.appData.generatedResumes)
-      ? state.appData.generatedResumes
-      : [];
-
-    let candidates = generatedResumes.filter((record) => {
-      const safe = record && typeof record === "object" ? record : {};
-      const recordResumeId = cleanString(safe.resumeDraftId || safe.id);
-      if (resumeId && recordResumeId && recordResumeId === resumeId) {
-        return true;
-      }
-      const recordJobId = cleanString(safe.jobId);
-      if (jobId && recordJobId && recordJobId === jobId) {
-        return true;
-      }
-      const recordJobUrl = cleanString(safe.jobUrl);
-      if (jobUrl && recordJobUrl && urlsMatch(recordJobUrl, jobUrl)) {
-        return true;
-      }
-      return false;
-    });
-
-    if (!candidates.length && jobUrl) {
-      candidates = generatedResumes.filter((record) => {
-        const safe = record && typeof record === "object" ? record : {};
-        const recordJobUrl = cleanString(safe.jobUrl);
-        return Boolean(recordJobUrl && urlsMatch(recordJobUrl, jobUrl));
-      });
-    }
-
-    candidates.sort((left, right) => pickResumeDraftTimestamp(right) - pickResumeDraftTimestamp(left));
-    return candidates.length ? candidates[0] : null;
-  }
-
-  async function openResumeDraftInNewTab(draftRecord, preopenedTab) {
-    const safe = draftRecord && typeof draftRecord === "object" ? draftRecord : {};
-    const storageRef = cleanString(safe.storageRef || (safe.exportedFiles && safe.exportedFiles.pdf));
-    const mime = cleanString(safe.mimeType);
-    const fileName = cleanString(safe.fileName);
-    const isPdf = mime.toLowerCase() === "application/pdf" || /\.pdf$/i.test(fileName) || /\.pdf$/i.test(storageRef);
-    if (!storageRef) {
-      closeTab(preopenedTab);
-      setStatus("Generated resume storage reference is missing.");
-      return false;
-    }
-
-    if (resumeRegistryStore && typeof resumeRegistryStore.getCompiledResumeBlobData === "function") {
-      const blob = await resumeRegistryStore.getCompiledResumeBlobData(storageRef);
-      if (blob && blob.dataBase64) {
-        const previewMime = cleanString(blob.mimeType) || mime;
-        if (isPdf || previewMime.toLowerCase() === "application/pdf") {
-          const fileBlob = base64ToBlob(blob.dataBase64, "application/pdf");
-          if (fileBlob && openBlobInNewTab(fileBlob, preopenedTab)) {
-            setStatus("Opened generated resume PDF in a new tab.");
-            return true;
-          }
-        } else {
-          const fallbackBlob = base64ToBlob(blob.dataBase64, previewMime);
-          if (fallbackBlob && openBlobInNewTab(fallbackBlob, preopenedTab)) {
-            setStatus("Opened generated resume in a new tab.");
-            return true;
-          }
-        }
-      }
-    }
-
-    try {
-      if (isPdf && storageRef && /^https?:\/\//i.test(storageRef)) {
-        if (preopenedTab) {
-          preopenedTab.location.href = storageRef;
-          setStatus("Opened generated resume PDF in a new tab.");
-          return true;
-        }
-      }
-      if (isPdf && storageRef && chrome.runtime && typeof chrome.runtime.getURL === "function") {
-        const runtimeUrl = chrome.runtime.getURL(storageRef.replace(/^\/+/, ""));
-        if (preopenedTab) {
-          preopenedTab.location.href = runtimeUrl;
-          setStatus("Opened generated resume PDF in a new tab.");
-          return true;
-        }
-      }
-    } catch {}
-
-    closeTab(preopenedTab);
-    setStatus("Could not open generated resume. Please regenerate and try again.");
-    return false;
-  }
-
-  async function runGenerateForJob(jobInput) {
-    const safeJob = jobInput && typeof jobInput === "object" ? jobInput : {};
-    const currentJob = {
-      title: cleanString(safeJob.title),
-      company: cleanString(safeJob.company),
-      location: cleanString(safeJob.location),
-      url: cleanString(safeJob.url || safeJob.jobUrl),
-      descriptionText: cleanString(safeJob.descriptionText || safeJob.description || safeJob.rawText),
-      extractedAt: cleanString(safeJob.extractedAt || new Date().toISOString())
-    };
-
-    const canonicalData = await getCanonicalDataForMutation();
-    const storageSettings = storage && typeof storage.getSettings === "function" ? await storage.getSettings() : {};
-    const settings = {
-      ...(canonicalData && canonicalData.settings && typeof canonicalData.settings === "object" ? canonicalData.settings : {}),
-      ...(storageSettings && typeof storageSettings === "object" ? storageSettings : {})
-    };
-    const guardResult = dataBoundary && typeof dataBoundary.evaluateGenerateResumeGuard === "function"
-      ? dataBoundary.evaluateGenerateResumeGuard({
-          currentJob: currentJob,
-          appData: canonicalData,
-          settings: settings
-        })
-      : { ok: true };
-
-    if (!guardResult || guardResult.ok !== true) {
-      showGenerateGuardFailure(guardResult);
-      return null;
-    }
-
-    if (!api || typeof api.generateResume !== "function") {
-      throw new Error("Generate API is unavailable.");
-    }
-
-    if (!appDataStore || typeof appDataStore.getAppData !== "function") {
-      throw new Error("App data storage is unavailable.");
-    }
-
-    if (storage && typeof storage.setJobData === "function") {
-      await storage.setJobData({
-        ...currentJob,
-        jobUrl: cleanString(currentJob.url),
-        role: cleanString(currentJob.title),
-        rawTitle: cleanString(currentJob.title),
-        description: cleanString(currentJob.descriptionText),
-        rawText: cleanString(currentJob.descriptionText)
-      });
-    }
-
-    const appData = await appDataStore.getAppData();
-    const request = messaging && typeof messaging.buildGenerateResumeRequest === "function"
-      ? messaging.buildGenerateResumeRequest(currentJob, settings, {
-          profile: appData.profile,
-          masterResume: appData.masterResume
-        })
-      : {
-          jobData: currentJob,
-          settings: settings,
-          profile: appData.profile,
-          masterResume: appData.masterResume
-        };
-
-    setStatus("Generating tailored resume...");
-    const response = await api.generateResume(request);
-    if (!response || response.ok !== true) {
-      throw new Error(cleanString(response && (response.error || response.message)) || "Resume generation failed.");
-    }
-
-    const generated = normalizeGenerateResult(response);
-    const draftRecord = await saveGeneratedResumeInternally({
-      currentJob: currentJob,
-      generated: generated,
-      createdAt: new Date().toISOString()
-    });
-
-    await refreshStateFromStorage();
-    renderAll();
-    setStatus("Tailored resume generated and saved.");
-    return draftRecord;
   }
 
   async function updateApplicationStatus(applicationId, nextStatusInput) {
@@ -7909,7 +7163,7 @@
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/\"/g, "&quot;")
+      .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
   }
 
@@ -7924,8 +7178,8 @@
     const needsNewline = blockActions.has(action) && before.length > 0 && !before.endsWith("\n");
     const prefix = needsNewline ? "\n" : "";
 
-    let insert = "";
-    let cursorFromInsertStart = 0;
+    let insert;
+    let cursorFromInsertStart;
 
     switch (action) {
       case "h1":
@@ -8433,7 +7687,7 @@
     }
 
     if (target.id === "notes-save-btn") {
-      void saveCurrentNote().catch(function(err) {
+      void saveCurrentNote().catch(function() {
         setStatus("Failed to save note. Please try again.");
       });
       return;
@@ -8850,7 +8104,9 @@
       if (tab && typeof tab.close === "function" && !tab.closed) {
         tab.close();
       }
-    } catch {}
+    } catch {
+      // Closing an auxiliary preview tab is best-effort cleanup.
+    }
   }
 
   function openBlobInNewTab(blob, targetTab) {
@@ -10463,7 +9719,7 @@
 
       appendAiMessage("assistant", formatResumeAiChangeSummary(execResult.changeSummary));
 
-    } catch (_err) {
+    } catch {
       state.aiChat.isThinking = false;
       appendAiMessage("assistant", "Failed to process your request. Please try again.");
     } finally {

@@ -99,7 +99,7 @@ function buildPageSnapshot() {
   const hostname = window.location.hostname || "";
   const pathname = window.location.pathname || "";
   const metadata = buildMetadata();
-  let htmlSnapshot = "";
+  let htmlSnapshot;
   try {
     const clone = document.body.cloneNode(true);
     clone.querySelectorAll("script, style, noscript, iframe, svg").forEach((node) => node.remove());
@@ -151,22 +151,6 @@ const APPLY_NOW_SPAN_SELECTOR = "button span";
 const APPLY_NOW_TEXT_RE = /\bapply\s+now\b/i;
 const TESTER_ALLOWED_RE = /\b(apply|start.{0,30}application|begin.{0,30}application|continue.{0,30}application)\b/i;
 const TESTER_FORBIDDEN_RE = /\b(submit application|send application|final submit|complete application|submit|finish)\b/i;
-const APPLICATION_FORM_FILLABLE_SELECTOR = [
-  "input:not([type=\"hidden\"])",
-  "textarea",
-  "select",
-  "input[type=\"file\"]",
-  "[contenteditable=\"true\"]",
-  "[contenteditable=\"\"]",
-  "[contenteditable=\"plaintext-only\"]",
-  "[role=\"textbox\"]",
-  "[role=\"combobox\"]",
-  "[role=\"listbox\"]",
-  "[role=\"radiogroup\"]",
-  "[role=\"checkbox\"]",
-  "[role=\"radio\"]"
-].join(",");
-const TESTER_FILLABLE_SEL = APPLICATION_FORM_FILLABLE_SELECTOR;
 
 const APPLICATION_KEYWORDS = [
   "first name",
@@ -396,7 +380,9 @@ function isVisibleCandidate(element) {
     if (style.display === "none" || style.visibility === "hidden" || style.opacity === "0") {
       return false;
     }
-  } catch {}
+  } catch {
+    // Fall back to geometry when computed styles cannot be read.
+  }
 
   try {
     const rect = element.getBoundingClientRect();
@@ -713,12 +699,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           const dtText = getClickableText(dtEl);
           if (dtText && !APPLY_SKIP_TEXT.test(dtText)) {
             const dtHref = getCandidateHref(dtEl);
-            try { dtEl.scrollIntoView({ block: "center", inline: "center" }); } catch {}
-            try { dtEl.focus(); } catch {}
+            try { dtEl.scrollIntoView({ block: "center", inline: "center" }); } catch { /* Keep using the target if scrolling is unavailable. */ }
+            try { dtEl.focus(); } catch { /* Focus is best-effort; continue with the remaining target operations. */ }
             ["mouseover", "mousedown", "mouseup", "click"].forEach(function dispatchEvDt(type) {
-              try { dtEl.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window })); } catch {}
+              try { dtEl.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window })); } catch { /* Continue with other activation methods if synthetic events are rejected. */ }
             });
-            try { dtEl.click(); } catch {}
+            try { dtEl.click(); } catch { /* Dispatched events may already have activated the target. */ }
             sendResponse(ok({ clicked: true, href: dtHref }));
             return;
           }
@@ -742,12 +728,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
       const href = getCandidateHref(el);
 
-      try { el.scrollIntoView({ block: "center", inline: "center" }); } catch {}
-      try { el.focus(); } catch {}
+      try { el.scrollIntoView({ block: "center", inline: "center" }); } catch { /* Keep using the target if scrolling is unavailable. */ }
+      try { el.focus(); } catch { /* Focus is best-effort; continue with the remaining target operations. */ }
       ["mouseover", "mousedown", "mouseup", "click"].forEach(function dispatchEv(type) {
-        try { el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window })); } catch {}
+        try { el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window })); } catch { /* Continue with other activation methods if synthetic events are rejected. */ }
       });
-      try { el.click(); } catch {}
+      try { el.click(); } catch { /* Dispatched events may already have activated the target. */ }
 
       sendResponse(ok({ clicked: true, href: href }));
     } catch (error) {
@@ -775,7 +761,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (!selectedCandidate) {
         const dtEl = document.querySelector("button[data-test-id=\"apply-button\"],[data-test-id=\"apply-button\"]");
         if (dtEl && !APPLY_SKIP_TEXT.test(getClickableText(dtEl))) {
-          try { dtEl.scrollIntoView({ block: "center", inline: "center" }); } catch {}
+          try { dtEl.scrollIntoView({ block: "center", inline: "center" }); } catch { /* Keep using the target if scrolling is unavailable. */ }
           const dr = dtEl.getBoundingClientRect();
           sendResponse(ok({ rect: { left: dr.left, top: dr.top, width: dr.width, height: dr.height } }));
           return;
@@ -796,7 +782,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
 
-      try { el.scrollIntoView({ block: "center", inline: "center" }); } catch {}
+      try { el.scrollIntoView({ block: "center", inline: "center" }); } catch { /* Keep using the target if scrolling is unavailable. */ }
       const r = el.getBoundingClientRect();
       sendResponse(ok({ rect: { left: r.left, top: r.top, width: r.width, height: r.height } }));
     } catch (error) {
@@ -878,12 +864,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return;
       }
       const href = getCandidateHref(el);
-      try { el.scrollIntoView({ block: "center", inline: "center" }); } catch {}
-      try { el.focus(); } catch {}
+      try { el.scrollIntoView({ block: "center", inline: "center" }); } catch { /* Keep using the target if scrolling is unavailable. */ }
+      try { el.focus(); } catch { /* Focus is best-effort; continue with the remaining target operations. */ }
       ["mouseover", "mousedown", "mouseup", "click"].forEach(function dispatchEv(type) {
-        try { el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window })); } catch {}
+        try { el.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window })); } catch { /* Continue with other activation methods if synthetic events are rejected. */ }
       });
-      try { el.click(); } catch {}
+      try { el.click(); } catch { /* Dispatched events may already have activated the target. */ }
       sendResponse(ok({ clicked: true, href: href }));
     } catch (error) {
       sendResponse(fail(error, ERROR_CODES.READ_PAGE_FAILED));
@@ -916,7 +902,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse(fail("Unsafe element rejected: matches forbidden final-submit terms", ERROR_CODES.READ_PAGE_FAILED));
         return;
       }
-      try { el.scrollIntoView({ block: "center", inline: "center" }); } catch {}
+      try { el.scrollIntoView({ block: "center", inline: "center" }); } catch { /* Keep using the target if scrolling is unavailable. */ }
       const r = el.getBoundingClientRect();
       sendResponse(ok({ rect: { left: r.left, top: r.top, width: r.width, height: r.height } }));
     } catch (error) {

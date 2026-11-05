@@ -12,31 +12,52 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  extension:
-    name: Extension syntax and package
+  lint:
+    name: Python and JavaScript lint
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7.0.1
-      - name: Check JavaScript syntax
-        run: find extension -name '*.js' -print0 | xargs -0 -n1 node --check
-      - name: Package extension
-        run: python3 scripts/package_extension.py
-      - name: Check package integrity
-        run: python3 -m zipfile -t build/AutoApply-extension.zip
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+      - uses: actions/setup-python@v7.1.0
+        with:
+          python-version: '3.14'
+      - name: Install lint tools
+        run: |
+          npm ci --prefix scripts --ignore-scripts
+          python -m pip install ruff==0.17.0
+      - name: Ruff correctness checks
+        run: ruff check --select E4,E7,E9,F job-tracker tests scripts
+      - name: ESLint recommended rules
+        run: npm --prefix scripts run lint
 
-  tests:
-    name: Python tests
+  test:
+    name: Python and extension tests
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '24'
       - uses: actions/setup-python@v7.1.0
         with:
           python-version: '3.14'
           cache: pip
           cache-dependency-path: job-tracker/requirements.txt
-      - name: Install dependencies
+      - name: Install Python dependencies
         run: python -m pip install -r job-tracker/requirements.txt pytest==9.2.0
-      - name: Run tests
+      - name: Extension tests and documentation consistency
+        run: node --test tests/extension/*.test.js
+      - name: Python tests
         run: python -m pytest -q
+      - name: Check JavaScript syntax
+        run: find extension -name '*.js' -print0 | xargs -0 -n1 node --check
+      - name: Package extension and check integrity
+        run: |
+          python3 scripts/package_extension.py
+          python3 -m zipfile -t build/AutoApply-extension.zip

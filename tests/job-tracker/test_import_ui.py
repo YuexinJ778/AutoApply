@@ -228,7 +228,8 @@ app.main()
             tracker.button(key="import_submit").click().run()
             self.assert_no_exception(tracker)
         uploaded = storage.load_jobs()["jobs"][3:]
-        remove_generated = lambda job: {key: value for key, value in job.items() if key not in {"id", "created_at", "updated_at"}}
+        def remove_generated(job):
+            return {key: value for key, value in job.items() if key not in {"id", "created_at", "updated_at"}}
         self.assertEqual([remove_generated(job) for job in pasted], [remove_generated(job) for job in uploaded])
         self.assertEqual(storage.SETTINGS_FILE.read_bytes(), settings_before)
         self.assertTrue(all("_help" not in job for job in storage.load_jobs()["jobs"]))

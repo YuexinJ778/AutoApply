@@ -132,7 +132,7 @@
       var mapKey = entryKey(candidateItem, "school", "degree");
       var tailored = tailoredByKey[mapKey] || {};
 
-      var mergedCoursework = "";
+      var mergedCoursework;
       var tailoredCoursework = tailored.coursework || tailored.relevantCoursework;
       var candidateCoursework = candidateItem.coursework || candidateItem.relevantCoursework;
       var rawCoursework = tailoredCoursework || candidateCoursework;

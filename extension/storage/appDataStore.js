@@ -524,7 +524,6 @@
 
   function normalizeMasterResume(input) {
     const raw = input && typeof input === "object" ? input : {};
-    const defaults = createDefaultMasterResume();
     const rawSkills = raw.skills && typeof raw.skills === "object" ? raw.skills : {};
 
     return {

@@ -2,7 +2,7 @@
 
 The resume assistant can execute **14 local editing operations** in the Chrome extension. The model returns a JSON `functionCalls` plan; the extension validates and executes it. Provider-native tools APIs are not used.
 
-The executable [allowlist and validator](../extension/options/resumeFunctions.js) define the accepted names. The [prompt-side function manual](../extension/lib/api.js#L2090) supplies the model with their signatures.
+The executable [allowlist and validator](../extension/options/resumeFunctions.js) define the accepted names. The [prompt-side function manual](../extension/lib/api.js) supplies the model with their signatures.
 
 ## Categories
 
@@ -60,18 +60,18 @@ A creation chain can use `$lastSection` after `addSection` and `$lastEntry` afte
 
 ## Execution and limits
 
-A normal chat request produces one batch of **at most 10 operations**. The [planner](../extension/lib/api.js#L2146) checks the JSON shape and requests one smaller plan if the initial response exceeds that limit. An oversized or malformed correction fails without executing edits.
+A normal chat request produces one batch of **at most 10 operations**. The [planner](../extension/lib/api.js) checks the JSON shape and requests one smaller plan if the initial response exceeds that limit. An oversized or malformed correction fails without executing edits.
 
-The [Console handler](../extension/options/options.js#L10359) sends the proposed batch for a model self-check, then calls the local executor. A failed, malformed, or rejected self-check stops execution. The local [batch validator](../extension/options/resumeFunctions.js#L117) independently checks the allowlist, argument objects, field/type/direction values, target IDs, and forbidden full-resume/profile/application payload keys before applying operations.
+The [Console handler](../extension/options/options.js) sends the proposed batch for a model self-check, then calls the local executor. A failed, malformed, or rejected self-check stops execution. The local [batch validator](../extension/options/resumeFunctions.js) independently checks the allowlist, argument objects, field/type/direction values, target IDs, and forbidden full-resume/profile/application payload keys before applying operations.
 
 Each operation builds a cloned resume. The executor returns the original input state if validation or a later operation fails; the Console persists and renders the result only after the batch succeeds. This boundary applies to a batch, not to every batch previously completed during a longer import.
 
 ## Configuration and failure handling
 
-The [provider request boundary](../extension/lib/api.js#L574) validates the prompt and resolved provider configuration before sending a request. **Settings → Test Connection** is a separate user-triggered check; it is not an extra network preflight automatically run before every edit.
+The [provider request boundary](../extension/lib/api.js) validates the prompt and resolved provider configuration before sending a request. **Settings → Test Connection** is a separate user-triggered check; it is not an extra network preflight automatically run before every edit.
 
-For a missing section, entry, line, or link, the Console makes one [recovery attempt](../extension/options/options.js#L10296) using the current resume and candidate targets. Recovery can revise calls, create a missing target, ask the user, or abort. A proposed recovery batch goes through another model self-check and the same local executor; a failed recovery asks for clarification instead of recursively retrying.
+For a missing section, entry, line, or link, the Console makes one [recovery attempt](../extension/options/options.js) using the current resume and candidate targets. Recovery can revise calls, create a missing target, ask the user, or abort. A proposed recovery batch goes through another model self-check and the same local executor; a failed recovery asks for clarification instead of recursively retrying.
 
-PDF/text import uses a separate bounded workflow: up to **120 import rounds**, **3 attempts per AI stage**, and **3 rejected proposals per step**. Its [limits](../extension/options/options.js#L140) and [import loop](../extension/options/options.js#L6149) stop unproductive work. Cancelling import keeps batches already imported; it does not roll back the entire session.
+PDF/text import uses a separate bounded workflow: up to **120 import rounds**, **3 attempts per AI stage**, and **3 rejected proposals per step**. Its [limits](../extension/options/options.js) and [import loop](../extension/options/options.js) stop unproductive work. Cancelling import keeps batches already imported; it does not roll back the entire session.
 
 The 14-operation count describes resume editing only. Provider requests, job capture, notes assistance, form autofill, PDF rendering, and the standalone job tracker are not additional entries in this allowlist.

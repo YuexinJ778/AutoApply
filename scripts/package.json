@@ -1,0 +1,12 @@
+{
+  "name": "autoapply-development-tools",
+  "private": true,
+  "scripts": {
+    "lint": "cd .. && eslint --config scripts/eslint.config.mjs --max-warnings 0 extension tests/extension"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.14.0",
+    "globals": "17.14.0"
+  }
+}

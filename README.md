@@ -1,9 +1,9 @@
 # AutoApply
 
-AI-assisted resume tailoring and application autofill, with a local Python job tracker, 14 resume tools, and 259 tests.
+AI-assisted resume tailoring and application autofill, with a local Python job tracker, 14 resume tools, 259 Python tests, and 28 extension tests.
 
 [![CI](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml/badge.svg)](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-259-blue)](tests/job-tracker/)
+[![Tests](https://img.shields.io/badge/tests-259_Python_%2B_28_extension-blue)](tests/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Chrome MV3](https://img.shields.io/badge/Chrome-Manifest_V3-blue)](extension/manifest.json)
 [![Python](https://img.shields.io/badge/Python-3.12%2B-blue)](job-tracker/requirements.txt)
@@ -62,7 +62,7 @@ PDF import uses a separate loop: at most **120 rounds**, **3 AI attempts per sta
 
 ## Engineering highlights
 
-- **Validated edits with failure isolation:** the [resume executor](extension/options/resumeFunctions.js) checks each batch and returns the original resume when execution fails.
+- **Validated edits with failure isolation:** the [resume executor](extension/options/resumeFunctions.js) checks each batch and returns the original resume when execution fails; [extension tests](tests/extension/resumeFunctions.test.js) cover validation, all 14 operations, cloning, and rollback.
 - **Credential and editing-payload boundaries:** [provider requests](extension/lib/api.js) authenticate separately; the [local validator](extension/options/resumeFunctions.js) rejects full resume/profile/application objects inside tool arguments.
 - **Resume provenance:** the [artifact registry](extension/storage/resumeRegistryStore.js) records resume IDs, version IDs, and storage references for generated artifacts.
 - **Recoverable local persistence:** [tracker storage](job-tracker/storage.py) uses atomic writes and rolling backups, covered by [storage tests](tests/job-tracker/test_storage.py).
@@ -89,11 +89,21 @@ python -m streamlit run job-tracker/app.py --server.address 127.0.0.1 --browser.
 
 The tracker needs no API key. `pdflatex` is optional for its LaTeX compilation feature. See the [tracker guide](job-tracker/README.md).
 
-Run the existing Python tests from the repository root:
+Run both test suites from the repository root with Python and **Node.js 24+**:
 
 ```bash
 python -m pip install pytest==9.2.0
 python -m pytest -q
+node --test tests/extension/*.test.js
+```
+
+Lint checks use Ruff's `E4,E7,E9,F` rules and ESLint's recommended rules:
+
+```bash
+python -m pip install ruff==0.17.0
+npm ci --prefix scripts --ignore-scripts
+ruff check --select E4,E7,E9,F job-tracker tests scripts
+npm --prefix scripts run lint
 ```
 
 Package the extension with `python3 scripts/package_extension.py`; the ZIP is written under `build/`.
@@ -111,7 +121,7 @@ The separate tracker stores JSON, CSV, resumes, attachments, notes, and reminder
 | `activeTab` | Access the page after the user invokes the extension. |
 | `scripting` | Inject extraction/autofill scripts when an existing tab has no content script. |
 | `downloads` | Save generated resume PDFs and exported files. |
-| `debugger` | Use Chrome DevTools Protocol for application-button clicks and A4 PDF generation. |
+| `debugger` | Generate A4 resume PDFs through Chrome DevTools Protocol (`Page.printToPDF`). |
 | `<all_urls>` | Work across job-portal domains and reach configured provider endpoints, including local endpoints. |
 
 Content scripts match `<all_urls>`; the synthetic fallback profile is a web-accessible resource on matching pages. Autofill runs in prepare-only mode. **Final application submission is a user action.**
@@ -124,7 +134,8 @@ The implementation and test evidence are linked below.
 | --- | --- | --- |
 | Resume operations | 14: 3 contact, 4 section, 3 entry, 4 line | [Executable allowlist](extension/options/resumeFunctions.js), [tools table](docs/tools.md) |
 | Python tests | 259 passed; 294 subtests | [Tracker test suite](tests/job-tracker/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
-| Extension checks | JavaScript syntax and ZIP packaging | [CI workflow](.github/workflows/ci.yml) |
+| Extension tests | 28 passed: 27 executor/validator tests and 1 documentation consistency test | [Node test suite](tests/extension/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
+| Lint and packaging | Ruff correctness rules, ESLint recommended, JavaScript syntax, and ZIP packaging | [CI workflow](.github/workflows/ci.yml) |
 
 See the [benchmark plan](docs/evaluation.md) for portal field counts and paired timing runs.
 
@@ -143,9 +154,8 @@ Next steps:
 
 1. Record the complete capture → tailor → autofill → track flow with fictional data.
 2. Add a reproducible portal benchmark and paired manual/tool timing measurements.
-3. Add extension unit tests and lint checks; current CI runs Python tests, JS syntax, and packaging.
-4. Design explicit extension/tracker data exchange and narrower on-demand host access.
-5. Build interview-preparation workflows; current preparation features are job guidance and notes.
+3. Design explicit extension/tracker data exchange and narrower on-demand host access.
+4. Build interview-preparation workflows; current preparation features are job guidance and notes.
 
 ## Contributors & License
 
