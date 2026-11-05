@@ -42,19 +42,11 @@ Calendar 使用已安裝並檢查 API／前端資源的 `streamlit-calendar==1.4
 ## 專案結構
 
 ```text
-job_tracker/
+server/job_manage/
 ├── app.py
 ├── storage.py
 ├── import_jobs.py
 ├── calendar_utils.py
-├── test_storage.py
-├── test_import_jobs.py
-├── test_import_ui.py
-├── test_resume_workspace.py
-├── test_calendar_utils.py
-├── test_calendar_ui.py
-├── test_reminders_storage.py
-├── test_reminders_ui.py
 ├── requirements.txt
 ├── README.md
 ├── .gitignore
@@ -87,7 +79,9 @@ job_tracker/
     └── settings.json.bak
 ```
 
-`data/`、`applications/` 與 `backups/` 都位於專案根目錄下。每筆工作的附件目錄使用程式產生的 UUID，不使用公司或職缺名稱。
+測試集中在 repo 根目錄的 `tests/server/job_manage/`。
+
+`data/`、`applications/` 與 `backups/` 都位於 `server/job_manage/` 下。每筆工作的附件目錄使用程式產生的 UUID，不使用公司或職缺名稱。
 
 `.streamlit/config.toml` 會停用 Streamlit 使用統計回傳，並只讓服務監聽 `127.0.0.1`，避免把含明文密碼的工具暴露到區域網路。
 
@@ -272,11 +266,11 @@ Calendar 的摘要只計入 `scheduled` 提醒，不包含全天投遞紀錄：
 
 本次 Chrome 使用 `/tmp` 隔離資料實測逐筆多選、全選、取消個別選取、清空選取／停用刪除、公司欄排序、取消確認與實際刪除。20 筆全選後取消兩筆，實際只刪 18 筆及資料夾；其餘 2 筆與 4 筆篩選外工作及原有檔案保持完整，公司資料／設定／既有備份測試檔亦保持不變。刪除後保留搜尋、統計更新，排序後 Open 開啟正確的 Company 04 工作。**未在瀏覽器逐一重測所有篩選組合、故障情境或 CSV／JSON 落地下載內容**；這些由自動測試驗證。所有刪除測試均未使用正式工作資料。
 
-測試只使用臨時目錄，不會修改正式資料。請使用已安裝 `requirements.txt` 的 Python（例如 `.venv/bin/python`）；新增 UI 測試使用 Streamlit 原生 AppTest：
+測試只使用臨時目錄，不會修改正式資料。請使用已安裝 `requirements.txt` 的 Python（例如 `.venv/bin/python`），從 repo 根目錄執行；UI 測試使用 Streamlit 原生 AppTest：
 
 ```bash
-python -m unittest discover -v
-python -m compileall -q app.py storage.py calendar_utils.py test_*.py
+python -m pip install pytest
+python -m pytest tests/server -q
 ```
 
 Calendar／Reminders 測試涵蓋日期衍生事件、UUID、儲存與備份復原、DST、摘要邊界及 Streamlit 表單／導航；AppTest 不會執行行事曆 iframe 的 JavaScript。實際瀏覽器中的月份切換、日期／事件點擊、資料更新與本機前端資源載入須另做瀏覽器驗證，不能由 Python 測試結果推定。

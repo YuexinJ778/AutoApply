@@ -1,6 +1,3 @@
-output/*
-!output/.gitkeep
-
 # Local environments and dependencies
 .venv/
 venv/
@@ -8,31 +5,23 @@ node_modules/
 __pycache__/
 *.py[cod]
 
-# Local credentials and settings
+# Local credentials
 .env
 .env.*
 !.env.example
 
-# Operating system files and generated artifacts
+# Generated files and caches
 .DS_Store
+/build/
+/dist/
 **/output/*
 !**/output/.gitkeep
-
-# Job-manager data is private runtime state, never a source-code fixture.
-/server/job_manage/data/
-*.db
-*.sqlite
-*.sqlite3
-*.pdf
-*.docx
-
-# Local audit reports and test artifacts.
-/.phase0/
-gitleaks*.json
-gitleaks*.sarif
-*-gitleaks.json
-*-gitleaks.log
 .pytest_cache/
 .ruff_cache/
 .coverage
 htmlcov/
+
+# Local job-manager state
+/server/job_manage/data/
+/server/job_manage/applications/
+/server/job_manage/backups/

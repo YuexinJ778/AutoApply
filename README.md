@@ -1,6 +1,19 @@
 # AutoApply
 
-A Chrome extension that helps you prepare job applications: tailor your resume with AI, fill application forms, and track your progress in one place.
+AI-assisted resume tailoring and application autofill, with a local Python job tracker, 14 resume tools, and 259 tests.
+
+## Repository layout
+
+```text
+extension/          Chrome extension (Manifest V3, JavaScript)
+server/job_manage/  Local Python job tracker
+tests/              Python tests and extension test directory
+docs/               Architecture and product assets
+scripts/            Extension packaging
+.github/workflows/  Workflow configuration
+```
+
+See [architecture](docs/architecture.md) for runtime boundaries and site-specific form matching.
 
 ## Features
 
@@ -10,13 +23,13 @@ A Chrome extension that helps you prepare job applications: tailor your resume w
 - Autofill application fields and attach a generated resume on supported forms.
 - Save jobs, track application stages, and keep notes for each application.
 
-The resume assistant uses [14 allowed editing operations](Chrome%20extension/options/resumeFunctions.js), validates each batch, and limits it to 10 calls. The separate [local job manager](server/job_manage/) adds a dashboard, company tracking, interview reminders and calendar, resume PDF versions, attachments, and recovery from local backups.
+The resume assistant uses [14 allowed editing operations](extension/options/resumeFunctions.js), validates each batch, and limits it to 10 calls. The separate [local job manager](server/job_manage/) adds a dashboard, company tracking, interview reminders and calendar, resume PDF versions, attachments, and recovery from local backups.
 
 ## Install
 
 1. Clone or download this repository.
 2. Open `chrome://extensions/` in Chrome and enable **Developer mode**.
-3. Click **Load unpacked** and select the `Chrome extension` folder.
+3. Click **Load unpacked** and select the `extension` folder.
 
 No build step is required.
 
@@ -39,8 +52,8 @@ To collect or run its tests:
 
 ```bash
 python -m pip install pytest
-python -m pytest server/job_manage --collect-only -q
-python -m pytest server/job_manage -q
+python -m pytest tests/server --collect-only -q
+python -m pytest tests/server -q
 ```
 
 The job-manager suite contains 259 tests. All passed on Python 3.14.3 with Streamlit 1.62.0; Streamlit 1.66.1 currently fails UI state tests, so the requirements pin the tested version.
@@ -60,7 +73,7 @@ The extension stores profiles, resumes, provider settings, API keys, application
 
 The job manager stores JSON, CSV, notes, resume files, and attachments in local `data/`, `applications/`, and `backups/` directories under `server/job_manage/`. These user data directories are excluded from Git. The job manager does not call an LLM provider. Local storage is not encrypted by this project; account and password fields in the job manager are saved as plain text.
 
-The [extension manifest](Chrome%20extension/manifest.json) retains the following permissions for existing features:
+The [extension manifest](extension/manifest.json) retains the following permissions for existing features:
 
 | Permission | Purpose |
 | --- | --- |
@@ -72,7 +85,7 @@ The [extension manifest](Chrome%20extension/manifest.json) retains the following
 | `debugger` | Use Chrome DevTools Protocol for application-button clicks and A4 PDF generation with `Page.printToPDF`. |
 | `<all_urls>` (host access) | Support job portals on different domains and requests to configurable provider endpoints, including local Ollama. |
 
-Content scripts also match `<all_urls>` so the extension can extract and fill forms across job portals. The bundled synthetic profile is available to matching pages. Site-specific grants and on-demand content-script injection remain future permission-reduction work. The redundant MiniMax host and SuccessFactors match declarations have been removed because `<all_urls>` already covers them.
+Content scripts also match `<all_urls>` so the extension can extract and fill forms across job portals. The bundled synthetic profile is available to matching pages. Site-specific grants and on-demand content-script injection remain future permission-reduction work.
 
 Autofill support varies by website. Review the generated resume and filled fields; final application submission is handled by the user.
 
@@ -82,7 +95,7 @@ The extension was developed jointly; the module links below identify each contri
 
 | Contributor | Contributions |
 | --- | --- |
-| [YuexinJ778](https://github.com/YuexinJ778) | Public repository maintenance and publication; shared extension development, including [resume import and application notes](Chrome%20extension/options/options.js) and [AI request integration](Chrome%20extension/lib/api.js). |
-| [yushliu](https://github.com/yushliu) | Shared extension development, including [resume tool execution and validation](Chrome%20extension/options/resumeFunctions.js), [AI planning and recovery](Chrome%20extension/lib/api.js), and [resume version storage](Chrome%20extension/storage/resumeRegistryStore.js); the [Python job manager](server/job_manage/app.py), [storage and recovery](server/job_manage/storage.py), [calendar](server/job_manage/calendar_utils.py), and its `test_*.py` suite. |
+| [YuexinJ778](https://github.com/YuexinJ778) | Public repository maintenance and publication; shared extension development, including [resume import and application notes](extension/options/options.js) and [AI request integration](extension/lib/api.js). |
+| [yushliu](https://github.com/yushliu) | Shared extension development, including [resume tool execution and validation](extension/options/resumeFunctions.js), [AI planning and recovery](extension/lib/api.js), and [resume version storage](extension/storage/resumeRegistryStore.js); the [Python job manager](server/job_manage/app.py), [storage and recovery](server/job_manage/storage.py), [calendar](server/job_manage/calendar_utils.py), and its [test suite](tests/server/job_manage/). |
 
 Licensed under the [MIT License](LICENSE).
