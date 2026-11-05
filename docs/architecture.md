@@ -1,6 +1,6 @@
 # Architecture
 
-AutoApply connects its Chrome extension to FastAPI in the local Streamlit process, sharing the tracker storage and its process lock. Capture, tailored PDFs, autofill coverage and explicit submission confirmation use this API. Notes and dashboard summary counts also use this API; older extension applications are read only for import. See the [API contract](local-api.md) and [extension tracking](tracker-extension.md).
+AutoApply connects its Chrome extension to FastAPI in the local Streamlit process, sharing the tracker storage and its process lock. Capture, tailored PDFs, autofill coverage and explicit submission confirmation use this API. Notes, dashboard summary counts and the five tracker agent operations also use this API; older extension applications are read only for import. See the [API contract](local-api.md) and [extension tracking](tracker-extension.md).
 
 ## Chrome extension
 
@@ -49,3 +49,10 @@ The [Streamlit app](../server/app.py) manages the jobs, companies, resume files,
 - `backups/` stores recovery copies.
 
 These runtime directories are excluded from Git. The app does not make LLM requests. The [local configuration](../server/.streamlit/config.toml) binds Streamlit to loopback and disables usage telemetry; the root README's launch command supplies the same options when starting outside this directory. Calendar and reminder behavior is implemented in [calendar utilities](../server/calendar_utils.py).
+
+
+## Tracker agent
+
+The Tracker assistant uses the existing JSON `functionCalls` pattern: one model plan, one self-check, a separate [tracker allowlist and validator](../extension/options/trackerFunctions.js), and one authenticated API batch. The model receives current status IDs/labels, the browser's local date and time zone, and notes as data. Read-only questions return no calls. Resume editing keeps its own 14-operation registry; tracker actions add five operations, for 19 total.
+
+The [server action adapter](../server/tracker_actions.py) resolves company and optional job title against unarchived applications. It returns `AMBIGUOUS` or `NOT_FOUND` before writes when targets cannot be resolved. Mutations delegate to existing job, Markdown note and reminder storage under the shared lock; local reminder times use the calendar's existing IANA/DST rules. No browser-side job lookup loop or server LLM is introduced.

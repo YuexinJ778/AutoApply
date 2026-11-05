@@ -7,8 +7,9 @@ AutoApply's implementation evidence is linked below; browser measurements can be
 As of 2026-11-05:
 
 - **14 resume operations:** the [executable allowlist](../extension/options/resumeFunctions.js) matches the [tools table](tools.md): 3 contact, 4 section, 3 entry, and 4 line operations.
-- **335 Python tests:** `python -m pytest --collect-only -q` collects the [server suite](../tests/server/). The passing run also reports 294 subtests separately.
-- **88 extension tests:** 28 resume/validator/documentation cases plus 60 tracker client, background/content routing, popup, import, profile storage, notes, summary and autofill counting cases. [View tests](../tests/extension/).
+- **5 tracker operations:** the [tracker allowlist](../extension/options/trackerFunctions.js) adds status, date, note and reminder operations, for **19 tools total** across the two registries.
+- **367 Python tests:** `python -m pytest --collect-only -q` collects the [server suite](../tests/server/). The passing run also reports 294 subtests separately.
+- **117 extension tests:** resume operations, both registry/documentation counts, tracker planning and validation, client/background/content routing, popup, import, profile storage, notes, summary and autofill counting. [View tests](../tests/extension/).
 - **CI:** the [workflow](../.github/workflows/ci.yml) runs Python and extension tests, Ruff correctness checks, ESLint recommended rules, JavaScript syntax checks, and ZIP packaging. [View runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml).
 
 ## Browser measurement plan

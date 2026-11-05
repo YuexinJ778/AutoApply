@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import storage
+from tracker_actions import execute_actions
 
 
 API_VERSION = "0.1.0"
@@ -37,6 +38,11 @@ class NotesInput(BaseModel):
 
 class ImportInput(BaseModel):
     jobs: list[dict[str, Any]]
+
+
+class ActionsInput(BaseModel):
+    functionCalls: list[dict[str, Any]]
+    timezone: str = ""
 
 
 def _public(value: Any) -> Any:
@@ -132,6 +138,10 @@ def create_app(token: str | None = None) -> FastAPI:
     @router.post("/import")
     def import_jobs(values: ImportInput):
         return _public(storage.import_extension_jobs(values.jobs))
+
+    @router.post("/actions")
+    def actions(values: ActionsInput):
+        return _public(execute_actions(values.functionCalls, values.timezone))
 
     app.include_router(router)
     return app

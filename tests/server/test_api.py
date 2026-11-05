@@ -72,6 +72,7 @@ def test_non_ascii_wrong_token_returns_401(client):
     ("PUT", f"/api/jobs/{uuid.uuid4()}/notes", {"json": {"notes": "test"}}),
     ("POST", f"/api/jobs/{uuid.uuid4()}/resumes", {"files": {"file": ("resume.pdf", PDF)}}),
     ("POST", "/api/import", {"json": {"jobs": []}}),
+    ("POST", "/api/actions", {"json": {"functionCalls": []}}),
 ])
 def test_every_data_route_requires_the_correct_token(client, authorization, method, path, kwargs):
     headers = {} if authorization is None else {"Authorization": authorization}

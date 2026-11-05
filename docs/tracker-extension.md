@@ -3,7 +3,8 @@
 1. Install `server/requirements.txt` and start the tracker:
    `python -m streamlit run server/app.py --server.address 127.0.0.1 --browser.gatherUsageStats false`.
    Open the dashboard page; its first browser session starts the API.
-2. Load the repository's `extension/` directory in Chrome. Moving an unpacked
+2. Load the repository's `extension/` directory in Chrome. After an update,
+   restart the tracker and reload the unpacked extension. Moving an unpacked
    extension changes its ID, so an earlier checkout has separate saved settings.
 3. In Console → Settings → Local Tracker, keep the default
    `http://127.0.0.1:8765`, copy the dashboard's Settings → Local API token,
@@ -31,6 +32,18 @@ details are shown directly. If the tracker is unavailable, capture, tailoring
 and filling continue; the separate tracker notice includes the launch command
 and a reminder to open the dashboard. There is no offline queue or later sync.
 
+## Tracker assistant
+
+Open **Console → Tracker** and use **Tracker Assistant** to ask about saved notes or request changes. For example:
+
+> Set Example Labs to Interviewing and add an interview reminder on 2026-11-12 at 10:00 titled Technical interview.
+
+The assistant can set a status or application date, append a note, and add or complete a reminder. It plans one batch of up to ten calls, checks the plan, validates the five allowed operations and sends one API request. These actions do not need an existing note or a selected job. The server resolves the company and optional job title; if multiple applications match, include the job title in your next message. Unknown targets and duplicate reminder titles are reported for clarification.
+
+Dates and local reminder times use the current date and browser time zone supplied to the model. If a different time zone is unclear, the assistant asks for details. The calendar keeps its existing DST validation. Read-only questions produce no writes, and the assistant reports completed changes from server results. It does not infer submission from notes or autofill.
+
+The Markdown editor still saves notes for the selected job. **Save latest reply to selected job** explicitly appends an assistant reply; chat stays in the current tab.
+
 ## Import existing applications
 
 In Local Tracker settings, click **Import existing applications into Tracker**.
@@ -42,7 +55,7 @@ server's record number and reason and write nothing.
 Application tracking and notes use the server as their only writable store.
 Console dashboard counts come from the same summary function as the Streamlit
 dashboard. Notes AI reads current server notes; saving a note writes through the
-API. The Notes job picker selects the Markdown editor and save target; the AI
+API. The Tracker job picker selects the Markdown editor and save target; the AI
 assistant reads saved notes across applications. Chat stays in the current tab
 until **Save latest reply to selected job** writes it to that job's note.
 Older extension application data stays read only for import, including

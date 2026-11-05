@@ -1,14 +1,14 @@
 # AutoApply
 
-AI-assisted resume tailoring and application autofill, with a local Python job tracker, 14 resume tools, 335 Python tests, and 88 extension tests.
+AI-assisted resume tailoring, application autofill and local job tracking, with 19 tools: 14 resume and 5 tracker. Tested with 367 Python tests and 117 extension tests.
 
 [![CI](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml/badge.svg)](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-335_Python_%2B_88_extension-blue)](tests/)
+[![Tests](https://img.shields.io/badge/tests-367_Python_%2B_117_extension-blue)](tests/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Chrome MV3](https://img.shields.io/badge/Chrome-Manifest_V3-blue)](extension/manifest.json)
 [![Python](https://img.shields.io/badge/Python-3.12%2B-blue)](server/requirements.txt)
 
-**Merge progress (M3):** applications, notes and dashboard counts now use the local tracker API. Legacy application data is read only for import. The demo below shows the earlier workflow. [Tracker setup and validation](docs/tracker-extension.md).
+**Merge progress (M4):** the Tracker assistant can update status and dates, append notes, and create or complete reminders through five validated operations. Applications, notes and dashboard counts use the local tracker API. The demo below shows the earlier workflow. [Tracker setup and validation](docs/tracker-extension.md).
 
 ## Demo
 
@@ -28,7 +28,7 @@ Job applications repeat the same profile entry, resume edits, and status updates
 | **Tailor** | Edit English or Chinese resumes through 14 local operations; review changes in the A4 preview and retain resume versions. |
 | **Autofill** | Map fields to profile values, reuse confirmed field knowledge, and attach generated resumes on supported forms; include HSBC/SuccessFactors matching rules. |
 | **Track** | Save jobs, tailored PDF versions, autofill coverage and explicit submission confirmations to the local Python tracker; Applications opens its dashboard. |
-| **Notes** | Review and edit tracker notes, ask the AI assistant about saved notes across applications, and save a reply to the selected job. |
+| **Tracker assistant** | Ask about saved notes or request status/date changes, appended notes, and reminders; the server resolves the intended application. |
 
 ## Architecture
 
@@ -50,7 +50,7 @@ The popup captures the active job page through the background worker and content
 
 ## Agent design
 
-The resume assistant asks the model for a JSON `functionCalls` plan and executes validated local operations. It does not use provider-native tools APIs.
+The assistants ask the model for a JSON `functionCalls` plan. Resume edits execute locally; tracker operations execute through the local API. Provider-native tools APIs are not used.
 
 | Category | Operations | Examples |
 | --- | ---: | --- |
@@ -58,9 +58,10 @@ The resume assistant asks the model for a JSON `functionCalls` plan and executes
 | Sections | 4 | `addSection`, `moveSection` |
 | Entries | 3 | `addEntry`, `deleteEntry` |
 | Lines | 4 | `addLine`, `setLine` |
-| **Total** | **14** | [Full names, arguments, and behavior](docs/tools.md) |
+| Tracker | 5 | `setJobStatus`, `addReminder` |
+| **Total** | **19** | [Full names, arguments, and behavior](docs/tools.md) |
 
-Each chat turn plans one batch of at most **10 calls**. Provider configuration is checked before a request. Before execution, a model self-check reviews the plan, and the local executor independently validates allowed names, arguments, and target IDs. It runs on a clone and saves the result only after success. A missing target allows one recovery attempt; unresolved or rejected edits ask for clarification or stop. An oversized plan gets one reduction request.
+Each chat turn plans one batch of at most **10 calls**. Tracker changes use a model self-check, a separate local allowlist/argument validator and the server’s existing storage validation. The server matches company and optional job title; ambiguous or missing targets return a clarification without executing the batch. Reminder times use the browser’s IANA time zone and the existing calendar validation. Resume editing follows its existing flow: Provider configuration is checked before a request. Before execution, a model self-check reviews the plan, and the local executor independently validates allowed names, arguments, and target IDs. It runs on a clone and saves the result only after success. A missing target allows one recovery attempt; unresolved or rejected edits ask for clarification or stop. An oversized plan gets one reduction request.
 
 PDF import uses a separate loop: at most **120 rounds**, **3 AI attempts per stage**, and **3 rejected proposals per step**. Completed earlier batches may remain saved if a later import stage stops. See the [harness details](docs/tools.md#configuration-and-failure-handling).
 
@@ -139,8 +140,9 @@ The implementation and test evidence are linked below.
 | Measure | Result | Evidence |
 | --- | --- | --- |
 | Resume operations | 14: 3 contact, 4 section, 3 entry, 4 line | [Executable allowlist](extension/options/resumeFunctions.js), [tools table](docs/tools.md) |
-| Python tests | 335 passed; 294 subtests | [Tracker test suite](tests/server/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
-| Extension tests | 88 passed: resume validation, tool documentation, tracker client, background/content routing, popup workflows, read-only import, profile storage, server notes and summary | [Node test suite](tests/extension/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
+| Tracker operations | 5; **19 tools total** with resume operations | [Tracker registry](extension/options/trackerFunctions.js), [tools table](docs/tools.md) |
+| Python tests | 367 passed; 294 subtests | [Tracker test suite](tests/server/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
+| Extension tests | 117 passed: resume validation, tool documentation, tracker client, background/content routing, popup workflows, read-only import, profile storage, server notes and summary | [Node test suite](tests/extension/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
 | Lint and packaging | Ruff correctness rules, ESLint recommended, JavaScript syntax, and ZIP packaging | [CI workflow](.github/workflows/ci.yml) |
 
 See the [benchmark plan](docs/evaluation.md) for portal field counts and paired timing runs.

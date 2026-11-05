@@ -37,7 +37,7 @@ function loadOptions({ tracker = {}, boundary = {}, api = {} } = {}) {
       async saveSettings(value) { return value; }, ...tracker
     },
     Stage11DataBoundary: boundary,
-    Stage5Api: api,
+    Stage5Api: { async selfCheckTrackerActions() { return { ok: true, approved: true }; }, ...api },
     Stage10AppDataStore: { createDefaultAppData() { return { profile: {}, resumes: {}, settings }; } },
     chrome: { storage: { local: {
       set() { throw new Error("Notes must not be written to browser storage"); },
@@ -51,7 +51,9 @@ function loadOptions({ tracker = {}, boundary = {}, api = {} } = {}) {
     }
   };
   const exposed = "refreshTrackerData, loadTrackerNotes, saveTrackerNotes, buildNotesAiContext, handleNotesAiSend, saveLatestNotesAiReply, handleNotesAiClear, importExistingApplicationsToTracker, setActiveTab, getActiveResume, flushManualResumeEditsToSharedState, applyAiExecutionResult, saveProfileResumeStateFromSharedState, state";
-  vm.runInNewContext(source.replace(boot,
+  vm.createContext(context);
+  vm.runInContext(readFileSync(path.join(__dirname, "../../extension/options/trackerFunctions.js"), "utf8"), context);
+  vm.runInContext(source.replace(boot,
     `  globalThis.trackerOptionsTest = { ${exposed} };\n})();`), context);
   const runtime = context.trackerOptionsTest;
   runtime.state.settings = settings;
@@ -106,7 +108,7 @@ test("notes AI reads fresh notes across server applications and keeps chat in me
   const run = loadOptions({ tracker: {
     async getJobs() { return [job, second]; },
     async getNotes(id) { return { notes: id === job.id ? "First job deadline" : "Second job interview" }; }
-  }, api: { async answerApplicationNotesQuestion(value) { request = plain(value); return { ok: true, answer: "Compare both timelines." }; } } });
+  }, api: { async planTrackerActions(value) { request = plain(value); return { ok: true, assistantMessage: "Compare both timelines.", functionCalls: [] }; } } });
   run.state.notesPage.selectedJobId = job.id;
   run.elements["notes-ai-input"].value = "Compare my applications";
   await run.handleNotesAiSend();
@@ -118,6 +120,205 @@ test("notes AI reads fresh notes across server applications and keeps chat in me
   assert.equal(run.state.notesPage.aiMessages.length, 0);
 });
 
+test("one request updates status and adds a reminder without requiring existing notes", async () => {
+  const calls = [
+    { name: "setJobStatus", args: { company: "Example Labs", status: "Interviewing" } },
+    { name: "addReminder", args: { company: "Example Labs", kind: "interview", datetime: "2026-11-12T10:00", title: "Interview" } }
+  ];
+  const statuses = [{ id: "custom_interview", label: "Interviewing" }];
+  const updated = { ...job, status_id: "custom_interview" };
+  let planRequest, checkRequest, batch, summaryReads = 0, executionCount = 0;
+  const run = loadOptions({ tracker: {
+    async getJobs() { return [updated]; },
+    async getStatuses() { return statuses; },
+    async getNotes() { return { notes: "" }; },
+    async getSummary() { summaryReads += 1; return { offer: 0, rejected: 0, pending: 1 }; },
+    async executeActions(functionCalls, timezone) {
+      executionCount += 1;
+      batch = { functionCalls: plain(functionCalls), timezone };
+      return { ok: true, results: [
+        { name: "setJobStatus", job: updated },
+        { name: "addReminder", job: updated, reminder: { title: "Interview" } }
+      ] };
+    }
+  }, api: {
+    async planTrackerActions(value) { planRequest = plain(value); return { ok: true, assistantMessage: "MODEL PLAN ONLY", functionCalls: calls }; },
+    async selfCheckTrackerActions(value) { checkRequest = plain(value); return { ok: true, approved: true }; }
+  } });
+  run.elements["notes-ai-input"].value = "Set Example Labs to Interviewing and add an interview reminder on November 12 at 10:00";
+  await run.handleNotesAiSend();
+  assert.equal(planRequest.notesContext.totalNotes, 0);
+  assert.equal(planRequest.selectedJob, null);
+  assert.deepEqual(planRequest.statuses, statuses);
+  assert.match(planRequest.currentDateTime, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/);
+  assert.equal(planRequest.timezone, Intl.DateTimeFormat().resolvedOptions().timeZone);
+  assert.deepEqual(checkRequest.functionCalls, calls);
+  assert.deepEqual(batch, { functionCalls: calls, timezone: planRequest.timezone });
+  assert.equal(executionCount, 1);
+  assert.equal(summaryReads, 1);
+  assert.match(run.state.notesPage.aiMessages.at(-1).content, /Status updated: Example Labs — Engineer \(Interviewing\)/);
+  assert.match(run.state.notesPage.aiMessages.at(-1).content, /Reminder added: Example Labs — Engineer — Interview/);
+  assert.doesNotMatch(run.state.notesPage.aiMessages.at(-1).content, /MODEL PLAN ONLY/);
+});
+
+test("successful status and reminder actions refresh counts while retaining the selected unsaved notes draft", async () => {
+  const updated = { ...job, status_id: "interviewing" };
+  let noteReads = 0;
+  const run = loadOptions({ tracker: {
+    async getJobs() { return [updated]; },
+    async getStatuses() { return [{ id: "interviewing", label: "Interviewing" }]; },
+    async getNotes() { noteReads += 1; return { notes: "Saved notes" }; },
+    async getSummary() { return { offer: 2, rejected: 1, pending: 4 }; },
+    async executeActions() { return { ok: true, results: [
+      { name: "setJobStatus", job: updated },
+      { name: "addReminder", job: updated, reminder: { title: "Interview" } }
+    ] }; }
+  }, api: {
+    async planTrackerActions() { return { ok: true, assistantMessage: "Planning", functionCalls: [
+      { name: "setJobStatus", args: { company: job.company, status: "Interviewing" } },
+      { name: "addReminder", args: { company: job.company, kind: "interview", datetime: "2026-11-12T10:00", title: "Interview" } }
+    ] }; }
+  } });
+  run.state.notesPage.jobs = [job];
+  run.state.notesPage.selectedJobId = job.id;
+  run.state.notesPage.loadedJobId = job.id;
+  run.state.notesPage.notes = "Saved notes";
+  run.elements["tracker-notes-editor"].value = "Unsaved **draft**";
+  run.elements["notes-ai-input"].value = "Set Example Labs to Interviewing and add an interview reminder";
+  await run.handleNotesAiSend();
+  assert.equal(run.state.notesPage.selectedJobId, job.id);
+  assert.equal(run.state.notesPage.loadedJobId, job.id);
+  assert.equal(run.elements["tracker-notes-editor"].value, "Unsaved **draft**");
+  assert.equal(run.state.notesPage.notes, "Saved notes");
+  assert.equal(run.elements["dashboard-stat-offer"].textContent, "2");
+  assert.equal(run.elements["dashboard-stat-pending"].textContent, "4");
+  assert.equal(noteReads, 1, "Planner reads server notes; refresh retains the dirty editor without reloading it");
+  assert.match(run.elements["tracker-status"].textContent, /unsaved notes draft was retained/);
+});
+
+test("an add-note action refreshes a clean editor with the latest shared server notes", async () => {
+  let notes = "Saved notes";
+  const run = loadOptions({ tracker: {
+    async getJobs() { return [job]; },
+    async getNotes() { return { notes }; },
+    async executeActions() {
+      notes += "\n\nPrepare a demo.";
+      return { ok: true, results: [{ name: "addJobNote", job }] };
+    }
+  }, api: {
+    async planTrackerActions() { return { ok: true, assistantMessage: "Planning", functionCalls: [
+      { name: "addJobNote", args: { company: job.company, text: "Prepare a demo." } }
+    ] }; }
+  } });
+  run.state.notesPage.jobs = [job];
+  run.state.notesPage.selectedJobId = job.id;
+  run.state.notesPage.loadedJobId = job.id;
+  run.state.notesPage.notes = notes;
+  run.elements["tracker-notes-editor"].value = notes;
+  run.elements["notes-ai-input"].value = "Add a note for Example Labs: Prepare a demo.";
+  await run.handleNotesAiSend();
+  assert.equal(run.elements["tracker-notes-editor"].value, "Saved notes\n\nPrepare a demo.");
+  assert.equal(run.state.notesPage.notes, notes);
+  assert.equal(run.state.notesPage.selectedJobId, job.id);
+});
+
+test("assistant remains usable with no selected job and reports server ambiguity without success", async () => {
+  let plans = 0, executions = 0, checks = 0;
+  const run = loadOptions({ tracker: {
+    async executeActions() {
+      executions += 1;
+      return { ok: false, code: "AMBIGUOUS", error: "Multiple applications match Example Labs.", candidates: [
+        { company: "Example Labs", jobTitle: "Engineer" }, { company: "Example Labs", jobTitle: "Designer" }
+      ] };
+    }
+  }, api: {
+    async planTrackerActions() { plans += 1; return { ok: true, assistantMessage: "Changed successfully!", functionCalls: [
+      { name: "setJobStatus", args: { company: "Example Labs", status: "Interviewing" } }
+    ] }; },
+    async selfCheckTrackerActions() { checks += 1; return { ok: true, approved: true }; }
+  } });
+  await run.refreshTrackerData();
+  assert.equal(run.elements["tracker-notes-editor"].disabled, true);
+  assert.equal(run.elements["notes-ai-input"].disabled, false);
+  assert.equal(run.elements["notes-ai-send-btn"].disabled, false);
+  run.elements["notes-ai-input"].value = "Change Example Labs to Interviewing";
+  await run.handleNotesAiSend();
+  const response = run.state.notesPage.aiMessages.at(-1).content;
+  assert.match(response, /No changes were made/);
+  assert.match(response, /Example Labs — Engineer/);
+  assert.match(response, /Example Labs — Designer/);
+  assert.match(response, /Please clarify/);
+  assert.doesNotMatch(response, /Changed successfully/);
+  assert.deepEqual([plans, checks, executions], [1, 1, 1]);
+});
+
+test("assistant snapshots the selected job before asynchronous Tracker reads", async () => {
+  let finish, selected;
+  const second = { ...job, id: "job-2", company: "Other Co" };
+  const run = loadOptions({ tracker: {
+    getStatuses() { return new Promise(resolve => { finish = resolve; }); }
+  }, api: {
+    async planTrackerActions(value) { selected = plain(value.selectedJob); return { ok: true, assistantMessage: "Please specify the reminder time.", functionCalls: [] }; }
+  } });
+  run.state.notesPage.jobs = [job, second];
+  run.state.notesPage.selectedJobId = job.id;
+  run.elements["notes-ai-input"].value = "Add a reminder for the selected job";
+  const pending = run.handleNotesAiSend();
+  run.state.notesPage.selectedJobId = second.id;
+  finish([]);
+  await pending;
+  assert.deepEqual(selected, { company: job.company, jobTitle: job.job_title });
+});
+
+test("nonallowlisted tracker actions never reach the self-check or server", async () => {
+  let checks = 0, executions = 0;
+  const run = loadOptions({ tracker: { async executeActions() { executions += 1; } }, api: {
+    async planTrackerActions() { return { ok: true, assistantMessage: "Deleted.", functionCalls: [{ name: "deleteJob", args: { company: "Example Labs" } }] }; },
+    async selfCheckTrackerActions() { checks += 1; return { ok: true, approved: true }; }
+  } });
+  run.elements["notes-ai-input"].value = "Delete Example Labs";
+  await run.handleNotesAiSend();
+  assert.match(run.state.notesPage.aiMessages.at(-1).content, /Unknown tracker function: deleteJob/);
+  assert.deepEqual([checks, executions], [0, 0]);
+});
+
+test("rejected, failed and malformed self-checks prevent every Tracker action", async () => {
+  for (const check of [
+    { ok: true, approved: false, reason: "The user asked a question, not a status change." },
+    { ok: false, approved: false, reason: "Model request failed." },
+    { ok: false, approved: true }, {}
+  ]) {
+    let executions = 0;
+    const run = loadOptions({ tracker: { async executeActions() { executions += 1; } }, api: {
+      async planTrackerActions() { return { ok: true, assistantMessage: "Saved.", functionCalls: [
+        { name: "setJobStatus", args: { company: "Example Labs", status: "Applied" } }
+      ] }; },
+      async selfCheckTrackerActions() { return check; }
+    } });
+    run.elements["notes-ai-input"].value = "What do my notes say about Example Labs?";
+    await run.handleNotesAiSend();
+    assert.equal(executions, 0);
+    assert.match(run.state.notesPage.aiMessages.at(-1).content, /No changes were made/);
+    assert.doesNotMatch(run.state.notesPage.aiMessages.at(-1).content, /Saved/);
+  }
+});
+
+test("read-only answers do not self-check or execute actions and retain the visible chat context", async () => {
+  let request;
+  const run = loadOptions({ tracker: {
+    async getJobs() { return [job]; }, async getNotes() { return { notes: "Call next week." }; },
+    async executeActions() { assert.fail("A question must not write Tracker data"); }
+  }, api: {
+    async planTrackerActions(value) { request = plain(value); return { ok: true, assistantMessage: "Your notes say to call next week.", functionCalls: [] }; },
+    async selfCheckTrackerActions() { assert.fail("A read-only answer needs no action self-check"); }
+  } });
+  run.state.notesPage.aiMessages = [{ role: "user", content: "Compare my deadlines" }, { role: "assistant", content: "One deadline is next week." }];
+  run.elements["notes-ai-input"].value = "What should I do next?";
+  await run.handleNotesAiSend();
+  assert.deepEqual(request.chatHistory, [{ role: "user", text: "Compare my deadlines" }, { role: "assistant", text: "One deadline is next week." }]);
+  assert.equal(run.state.notesPage.aiMessages.at(-1).content, "Your notes say to call next week.");
+});
+
 test("saving an AI reply preserves an unsaved Markdown draft and targets the selected job", async () => {
   let written;
   const run = loadOptions({ tracker: { async saveNotes(id, notes) { written = { id, notes }; return { notes }; } } });
@@ -127,7 +328,7 @@ test("saving an AI reply preserves an unsaved Markdown draft and targets the sel
   run.elements["tracker-notes-editor"].value = "Unsaved draft";
   await run.saveLatestNotesAiReply();
   assert.equal(written.id, job.id);
-  assert.equal(written.notes, "Unsaved draft\n\n## AI Notes Assistant\n\nPrepare a demo.");
+  assert.equal(written.notes, "Unsaved draft\n\n## Tracker Assistant\n\nPrepare a demo.");
   assert.equal(run.elements["tracker-notes-editor"].value, written.notes);
 });
 

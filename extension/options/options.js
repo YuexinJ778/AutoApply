@@ -2616,8 +2616,8 @@
     const disabled = notes.loading || !notes.selectedJobId || notes.loadedJobId !== notes.selectedJobId;
     if (trackerNotesEditorEl) trackerNotesEditorEl.disabled = disabled;
     if (trackerNotesSaveBtn) trackerNotesSaveBtn.disabled = disabled;
-    if (notesAiInputEl) notesAiInputEl.disabled = disabled || notes.isThinking;
-    if (notesAiSendBtn) notesAiSendBtn.disabled = disabled || notes.isThinking;
+    if (notesAiInputEl) notesAiInputEl.disabled = notes.isThinking;
+    if (notesAiSendBtn) notesAiSendBtn.disabled = notes.isThinking;
     if (notesAiSaveBtn) notesAiSaveBtn.disabled = disabled || notes.isThinking || !notes.aiMessages.some(item => item.role === "assistant");
     if (notesAiClearBtn) notesAiClearBtn.disabled = notes.isThinking || !notes.aiMessages.length;
     if (notesAiMessagesEl) {
@@ -2654,7 +2654,10 @@
     }
   }
 
-  async function refreshTrackerData() {
+  async function refreshTrackerData({ preserveDraft = false } = {}) {
+    const draftJobId = state.notesPage.selectedJobId;
+    const retainDraft = preserveDraft && draftJobId && state.notesPage.loadedJobId === draftJobId
+      && trackerNotesEditorEl && trackerNotesEditorEl.value !== state.notesPage.notes;
     state.notesPage.loading = true;
     renderTrackerNotesPage();
     try {
@@ -2668,7 +2671,11 @@
         state.notesPage.selectedJobId = jobs.length ? jobs[0].id : "";
       }
       if (state.notesPage.selectedJobId) {
-        await loadTrackerNotes(state.notesPage.selectedJobId);
+        if (retainDraft && state.notesPage.selectedJobId === draftJobId) {
+          setTrackerStatus("Tracker updated. Your unsaved notes draft was retained.");
+        } else {
+          await loadTrackerNotes(state.notesPage.selectedJobId);
+        }
       } else {
         state.notesPage.loadedJobId = "";
         state.notesPage.notes = "";
@@ -2716,32 +2723,90 @@
     renderTrackerNotesPage();
   }
 
+  function trackerCurrentTime() {
+    const now = new Date();
+    const pad = value => String(value).padStart(2, "0");
+    return {
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      currentDateTime: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`
+    };
+  }
+
+  function formatTrackerActionFailure(result) {
+    const reason = cleanString(result && result.error) || "The Tracker action could not be completed.";
+    const candidates = Array.isArray(result && result.candidates) ? result.candidates : [];
+    const choices = candidates.map(item => `${item.company} — ${item.jobTitle}`).join("\n");
+    const clarification = result && (result.code === "AMBIGUOUS" || result.code === "NOT_FOUND")
+      ? "\nPlease clarify the company, job title, or reminder."
+      : "";
+    return `No changes were made. ${reason}${choices ? "\n" + choices : ""}${clarification}`;
+  }
+
+  function formatTrackerActionSuccess(results) {
+    return results.map(result => {
+      const job = result.job;
+      const target = `${job.company} — ${job.job_title}`;
+      switch (result.name) {
+        case "setJobStatus": return `Status updated: ${target} (${trackerStatusLabel(job)}).`;
+        case "setAppliedDate": return `Applied date updated: ${target} (${job.applied_date}).`;
+        case "addJobNote": return `Note added: ${target}.`;
+        case "addReminder": return `Reminder added: ${target} — ${result.reminder.title}.`;
+        case "completeReminder": return `Reminder completed: ${target} — ${result.reminder.title}.`;
+      }
+    }).join("\n");
+  }
+
   async function handleNotesAiSend() {
     const userMessage = cleanString(notesAiInputEl && notesAiInputEl.value);
     if (!userMessage || state.notesPage.isThinking) return;
     if (!hasAiProvider()) {
-      appendNotesAiMessage("assistant", "AI Notes Assistant is unavailable because no model provider is configured.");
+      appendNotesAiMessage("assistant", "Tracker Assistant is unavailable because no model provider is configured.");
       return;
     }
     const chatHistory = buildVisibleChatHistory(state.notesPage.aiMessages);
+    const selectedJob = state.notesPage.jobs.find(job => job.id === state.notesPage.selectedJobId);
     state.notesPage.isThinking = true;
-    renderTrackerNotesPage();
+    if (notesAiInputEl) notesAiInputEl.value = "";
+    appendNotesAiMessage("user", userMessage);
     try {
-      const context = await buildNotesAiContext();
-      if (!context.totalNotes) {
-        appendNotesAiMessage("assistant", "No Tracker notes are available yet. Save a note first.");
+      state.notesPage.statuses = await tracker.getStatuses();
+      const notesContext = await buildNotesAiContext();
+      const request = {
+        userMessage, notesContext, chatHistory, statuses: state.notesPage.statuses,
+        selectedJob: selectedJob ? { company: selectedJob.company, jobTitle: selectedJob.job_title } : null,
+        ...trackerCurrentTime(), settings: getAiSettings()
+      };
+      const plan = await api.planTrackerActions(request);
+      if (!plan || plan.ok !== true) {
+        appendNotesAiMessage("assistant", cleanString(plan && plan.error) || "Tracker planning failed.");
         return;
       }
-      if (notesAiInputEl) notesAiInputEl.value = "";
-      appendNotesAiMessage("user", userMessage);
-      const result = await api.answerApplicationNotesQuestion({
-        userMessage, notesContext: context, chatHistory, settings: getAiSettings()
-      });
-      appendNotesAiMessage("assistant", result && result.ok === true
-        ? cleanString(result.answer) || "The saved notes do not contain enough information."
-        : cleanString(result && result.error) || "Failed to answer based on notes.");
+      const functions = globalThis.TrackerAiFunctions;
+      const validation = functions.validateTrackerFunctionBatch(plan.functionCalls);
+      if (!validation.ok) {
+        appendNotesAiMessage("assistant", formatTrackerActionFailure(validation));
+        return;
+      }
+      if (!plan.functionCalls.length) {
+        appendNotesAiMessage("assistant", cleanString(plan.assistantMessage) || "Please give more detail about your Tracker request.");
+        return;
+      }
+      const check = await api.selfCheckTrackerActions({ ...request, functionCalls: plan.functionCalls });
+      if (!check || check.ok !== true || check.approved !== true) {
+        appendNotesAiMessage("assistant", `No changes were made. ${cleanString(check && check.reason) || "The proposed Tracker actions were rejected by the self-check."}`);
+        return;
+      }
+      const result = await functions.executeTrackerFunctions(plan.functionCalls, { timezone: request.timezone });
+      if (!result || result.ok !== true) {
+        appendNotesAiMessage("assistant", formatTrackerActionFailure(result));
+        return;
+      }
+      await refreshTrackerData({ preserveDraft: true });
+      appendNotesAiMessage("assistant", formatTrackerActionSuccess(result.results));
     } catch (error) {
-      setTrackerStatus(error instanceof Error ? error.message : String(error));
+      const message = error instanceof Error ? error.message : String(error);
+      appendNotesAiMessage("assistant", `Tracker request failed: ${message}`);
+      setTrackerStatus(message);
     } finally {
       state.notesPage.isThinking = false;
       renderTrackerNotesPage();
@@ -2757,7 +2822,7 @@
     const message = state.notesPage.aiMessages.slice().reverse().find(item => item.role === "assistant");
     if (!message || !state.notesPage.selectedJobId || state.notesPage.loadedJobId !== state.notesPage.selectedJobId) return;
     const text = trackerNotesEditorEl ? trackerNotesEditorEl.value : state.notesPage.notes;
-    const combined = `${text.trimEnd()}\n\n## AI Notes Assistant\n\n${message.content}`.trimStart();
+    const combined = `${text.trimEnd()}\n\n## Tracker Assistant\n\n${message.content}`.trimStart();
     const jobId = state.notesPage.selectedJobId;
     const saved = await tracker.saveNotes(jobId, combined);
     if (state.notesPage.selectedJobId === jobId && state.notesPage.loadedJobId === jobId) {

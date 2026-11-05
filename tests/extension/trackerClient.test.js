@@ -17,12 +17,13 @@ function load(fetchImpl = async () => response([]), overrides = {}) {
   let settings = overrides.settings;
   const requests = [];
   const tabs = [];
+  const writes = [];
   const context = vm.createContext({
     AbortController, Blob, FormData, URL, setTimeout, clearTimeout,
     chrome: {
       storage: { local: {
         get: async () => ({ trackerSettings: settings }),
-        set: async values => { settings = values.trackerSettings; }
+        set: async values => { writes.push(values); settings = values.trackerSettings; }
       } },
       tabs: { create: async values => { tabs.push(values); return values; } }
     },
@@ -33,7 +34,7 @@ function load(fetchImpl = async () => response([]), overrides = {}) {
     ...overrides.globals
   });
   vm.runInContext(clientSource, context);
-  return { client: context.AutoApplyTracker, requests, tabs };
+  return { client: context.AutoApplyTracker, requests, tabs, writes };
 }
 
 const configured = { settings: { url: "http://127.0.0.1:8765", token: "local-token" } };
@@ -211,6 +212,35 @@ test("Applications opens the dashboard on the configured localhost host", async 
   const { client, tabs } = load(undefined, { settings: { url: "http://localhost:8765", token: "token" } });
   await client.openDashboard();
   assert.equal(tabs[0].url, "http://localhost:8501/");
+});
+
+test("tracker actions send one authenticated batch and timezone to the action endpoint", async () => {
+  const { client, requests } = load(async () => response({ ok: true, results: [] }), configured);
+  const functionCalls = [{ name: "setJobStatus", args: { company: "Example Labs", status: "Interviewing" } }];
+  assert.equal((await client.executeActions(functionCalls, "America/Indiana/Indianapolis")).ok, true);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, "http://127.0.0.1:8765/api/actions");
+  assert.equal(requests[0].options.method, "POST");
+  assert.equal(requests[0].options.headers.Authorization, "Bearer local-token");
+  assert.deepEqual(JSON.parse(requests[0].options.body), { functionCalls, timezone: "America/Indiana/Indianapolis" });
+});
+
+test("tracker action business errors remain raw while HTTP errors keep the server reason", async () => {
+  for (const code of ["AMBIGUOUS", "NOT_FOUND"]) {
+    const payload = { ok: false, code, error: "Identify the job.", candidates: [{ company: "Example Labs", jobTitle: "Engineer" }] };
+    const { client } = load(async () => response(payload), configured);
+    assert.equal(await client.executeActions([], "UTC"), payload);
+  }
+  const { client } = load(async () => response({ detail: "Record 2: Invalid reminder time." }, 422), configured);
+  await assert.rejects(client.executeActions([], "UTC"), { message: "Record 2: Invalid reminder time." });
+});
+
+test("offline action execution does not retry or write a local queue", async () => {
+  const { client, requests, writes } = load(async () => { throw new TypeError("Failed to fetch"); }, configured);
+  await assert.rejects(client.executeActions([{ name: "addJobNote", args: { company: "Example Labs", text: "Note" } }], "UTC"),
+    /Tracker is not running/);
+  assert.equal(requests.length, 1);
+  assert.equal(writes.length, 0);
 });
 
 function background(tracker, pendingApply = null) {

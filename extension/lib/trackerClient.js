@@ -130,6 +130,10 @@
     return request("/api/import", { method: "POST", json: buildImportPayload(records) });
   }
 
+  function executeActions(functionCalls, timezone) {
+    return request("/api/actions", { method: "POST", json: { functionCalls, timezone } });
+  }
+
   async function getDashboardUrl() {
     const target = new URL((await getSettings()).url);
     target.port = "8501";
@@ -146,7 +150,7 @@
   global.AutoApplyTracker = Object.freeze({
     getSettings, saveSettings, createJob, getJobs, patchJob, uploadResume,
     getStatuses, getSummary, getNotes, saveNotes,
-    buildImportPayload, importJobs, getDashboardUrl, openDashboard,
+    buildImportPayload, importJobs, executeActions, getDashboardUrl, openDashboard,
     testConnection: getStatuses
   });
 })(globalThis);

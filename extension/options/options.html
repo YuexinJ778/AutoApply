@@ -21,7 +21,7 @@
         <button class="tab-btn" data-tab="test">Test</button>
         <button class="tab-btn" data-tab="autofill">AutoFill Answers</button>
         <button id="open-tracker-dashboard-btn" class="tab-btn" type="button">Applications ↗ Tracker Dashboard</button>
-        <button class="tab-btn" data-tab="notes">Notes</button>
+        <button class="tab-btn" data-tab="notes">Tracker</button>
         <button class="tab-btn" data-tab="settings">Settings</button>
       </nav>
       <p id="tracker-status" class="helper-text" role="status" hidden></p>
@@ -199,8 +199,8 @@
 
       <section id="view-notes" class="view-section hidden">
         <div class="notes-page-header">
-          <h2>Tracker Notes</h2>
-          <p>Edit the same Markdown notes shown in the local dashboard. The AI assistant can read notes across your Tracker jobs.</p>
+          <h2>Tracker</h2>
+          <p>Edit shared Markdown notes, ask questions across your jobs, or request Tracker changes.</p>
         </div>
         <div class="notes-page-grid">
           <section class="notes-page-panel">
@@ -213,13 +213,13 @@
           </section>
           <section class="notes-page-panel notes-ai-panel">
             <div class="notes-page-panel-header">
-              <h3>AI Notes Assistant</h3>
+              <h3>Tracker Assistant</h3>
               <button id="notes-ai-clear-btn" type="button" class="secondary-btn small-btn">Clear Chat</button>
             </div>
             <p class="helper-text">Chat stays in this tab only. Save replies to the selected job's notes before closing.</p>
             <div id="notes-ai-messages" class="notes-ai-messages"></div>
             <div class="notes-ai-input-row">
-              <textarea id="notes-ai-input" class="notes-ai-input" rows="3" placeholder="Ask about your Tracker notes..."></textarea>
+              <textarea id="notes-ai-input" class="notes-ai-input" rows="3" placeholder="Ask about your notes, change a status, or add a reminder..."></textarea>
               <button id="notes-ai-send-btn" type="button" class="primary-btn notes-ai-send-btn">Send</button>
             </div>
             <button id="notes-ai-save-btn" type="button" class="secondary-btn" disabled>Save latest reply to selected job</button>
@@ -375,13 +375,14 @@
     <script src="../lib/render/resumePdfBuilder.js"></script>
     <script src="../lib/render/resumeA4Template.js"></script>
     <script src="../lib/render/artifactWriter.js"></script>
+    <script src="../lib/trackerClient.js"></script>
+    <script src="trackerFunctions.js"></script>
     <script src="../lib/api.js"></script>
     <script src="../storage/localStore.js"></script>
     <script src="../storage/appDataStore.js"></script>
     <script src="../storage/resumeRegistryStore.js"></script>
     <script src="../lib/dataBoundary.js"></script>
     <script src="resumeFunctions.js"></script>
-    <script src="../lib/trackerClient.js"></script>
     <script src="options.js"></script>
   </body>
 </html>
