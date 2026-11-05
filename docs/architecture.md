@@ -1,6 +1,6 @@
 # Architecture
 
-AutoApply connects its Chrome extension to FastAPI in the local Streamlit process, sharing the tracker storage and its process lock. Capture, tailored PDFs, autofill coverage and explicit submission confirmation use this API. Legacy local application/notes cleanup follows in M3. See the [API contract](local-api.md) and [extension tracking](tracker-extension.md).
+AutoApply connects its Chrome extension to FastAPI in the local Streamlit process, sharing the tracker storage and its process lock. Capture, tailored PDFs, autofill coverage and explicit submission confirmation use this API. Notes and dashboard summary counts also use this API; older extension applications are read only for import. See the [API contract](local-api.md) and [extension tracking](tracker-extension.md).
 
 ## Chrome extension
 
@@ -9,7 +9,7 @@ The browser loads the JavaScript listed in the [manifest](../extension/manifest.
 | Entry point | Responsibility |
 | --- | --- |
 | [Popup](../extension/popup/popup.html) and [controller](../extension/popup/popup.js) | Start job capture, resume preparation, and application autofill from the active tab. |
-| [Console](../extension/options/options.html) and [controller](../extension/options/options.js) | Edit profiles and resumes, configure providers/tracker access, import legacy applications, and open the tracker dashboard. Legacy notes remain until M3. |
+| [Console](../extension/options/options.html) and [controller](../extension/options/options.js) | Edit profiles and resumes, configure providers/tracker access, import legacy applications, and open the tracker dashboard. Read and edit tracker notes, with AI context fetched from the server. |
 | [Background service worker](../extension/background/background.js) | Route extension messages and content-script tracker requests, request page content, parse job details, and inject extraction scripts when needed. |
 | [Page content script](../extension/content/content.js) | Read page content and handle commands sent to the job tab. |
 | [Application pipeline](../extension/content/applyPipeline.js) | Scan fields, map profile values, attach resume files, and check readiness without submitting the application. |
@@ -21,7 +21,7 @@ Scripts communicate through extension messages and shared `Stage*` globals. Scri
 
 ## Storage and provider requests
 
-The extension's [`storage/`](../extension/storage/) modules use `chrome.storage.local` for profiles, provider settings and API keys, resume versions, application records, notes, and autofill knowledge. Configured provider requests go directly from the extension to that provider; a locally configured Ollama endpoint is also supported.
+The extension's [`storage/`](../extension/storage/) modules use `chrome.storage.local` for profiles, provider settings and API keys, resume versions and autofill knowledge. Application records and notes live on the server; legacy extension application keys are read only for import. Notes AI conversations stay in memory until explicitly saved to a server note. Configured provider requests go directly from the extension to that provider; a locally configured Ollama endpoint is also supported.
 
 AI actions can send job and resume content, conversation or notes context, and user instructions. PDF import can send the selected PDF to a provider that supports it. API keys authenticate requests. The [application pipeline](../extension/content/applyPipeline.js) prefers the saved profile and uses the bundled [mock profile](../extension/data/mockCandidateProfile.json) as its fallback when a usable local profile is unavailable.
 

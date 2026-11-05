@@ -19,24 +19,14 @@
   const trackerTestBtn = document.getElementById("tracker-test-btn");
   const trackerImportBtn = document.getElementById("tracker-import-btn");
 
-  const dashboardStatTotalEl = document.getElementById("dashboard-stat-total");
-  const dashboardStatSavedEl = document.getElementById("dashboard-stat-saved");
-  const dashboardStatAppliedEl = document.getElementById("dashboard-stat-applied");
-  const dashboardStatInterviewEl = document.getElementById("dashboard-stat-interview");
+  const dashboardStatPendingEl = document.getElementById("dashboard-stat-pending");
   const dashboardStatOfferEl = document.getElementById("dashboard-stat-offer");
   const dashboardStatRejectedEl = document.getElementById("dashboard-stat-rejected");
 
-  const profileResumeViewEl = document.getElementById("view-profile-resume");
-  const applicationResumeContextEl = document.getElementById("application-resume-context");
-  const backToApplicationsBtn = document.getElementById("back-to-applications-btn");
-  const profileResumeTopBar = document.getElementById("profile-resume-top-bar");
-  const appModeTopBar = document.getElementById("app-mode-top-bar");
   const uploadResumeProfileTopBtn = document.getElementById("upload-resume-profile-top-btn");
   const saveProfileResumeTopBtn = document.getElementById("save-profile-resume-top-btn");
-  const saveAppResumeTopBtn = document.getElementById("save-app-resume-top-btn");
   const generateManualResumeBtn = document.getElementById("generate-manual-resume-btn");
   const translateManualResumeBtn = document.getElementById("translate-manual-resume-btn");
-  const profileResumeSubtitleEl = document.getElementById("profile-resume-subtitle");
 
   const summaryListEl = document.getElementById("summary-list");
   const summaryEmptyStateEl = document.getElementById("summary-empty-state");
@@ -65,28 +55,16 @@
   const autofillRunBtn = document.getElementById("autofill-run-btn");
   const autofillAnswerListEl = document.getElementById("autofill-answer-list");
 
-  const applicationsSearchEl = document.getElementById("applications-search");
-  const applicationsFilterEl = document.getElementById("applications-filter");
-  const applicationsSortEl = document.getElementById("applications-sort");
-  const applicationsTableBodyEl = document.getElementById("applications-table-body");
-
-  const globalNotesSearchEl = document.getElementById("global-notes-search");
-  const globalNotesCompanyFilterEl = document.getElementById("global-notes-company-filter");
-  const globalNotesStatusFilterEl = document.getElementById("global-notes-status-filter");
-  const globalNotesListEl = document.getElementById("global-notes-list");
+  const trackerNotesJobEl = document.getElementById("tracker-notes-job");
+  const trackerNotesEditorEl = document.getElementById("tracker-notes-editor");
+  const trackerNotesSaveBtn = document.getElementById("tracker-notes-save-btn");
+  const trackerNotesRefreshBtn = document.getElementById("tracker-notes-refresh-btn");
+  const trackerDashboardRefreshBtn = document.getElementById("tracker-dashboard-refresh-btn");
+  const notesAiSaveBtn = document.getElementById("notes-ai-save-btn");
   const notesAiMessagesEl = document.getElementById("notes-ai-messages");
-  const notesAiEmptyHintEl = document.getElementById("notes-ai-empty-hint");
   const notesAiInputEl = document.getElementById("notes-ai-input");
   const notesAiSendBtn = document.getElementById("notes-ai-send-btn");
   const notesAiClearBtn = document.getElementById("notes-ai-clear-btn");
-  const notesAiExportBtn = document.getElementById("notes-ai-export-btn");
-  const notesAiExportModalOverlayEl = document.getElementById("notes-ai-export-modal-overlay");
-  const notesAiExportTimeInputEl = document.getElementById("notes-ai-export-time-input");
-  const notesAiExportNameInputEl = document.getElementById("notes-ai-export-name-input");
-  const notesAiExportApplicationSelectEl = document.getElementById("notes-ai-export-application-select");
-  const notesAiExportEmptyMsgEl = document.getElementById("notes-ai-export-empty-msg");
-  const notesAiExportValidationMsgEl = document.getElementById("notes-ai-export-validation-msg");
-  const notesAiExportSubmitBtn = document.getElementById("notes-ai-export-submit-btn");
 
   const settingsProviderEl = document.getElementById("settings-provider");
   const settingsModelEl = document.getElementById("settings-model");
@@ -135,41 +113,14 @@
   const uploadResumeCloseBtn = document.getElementById("upload-resume-close-btn");
 
   const VALID_TOP_LEVEL_TABS = new Set(["dashboard", "profile-resume", "test", "autofill", "notes", "settings"]);
-  const APPLICATION_STATUSES = Object.freeze(["Saved", "Applied", "Interview", "Offer", "Rejected", "Withdrawn"]);
   const LOCAL_RESUME_STORAGE_KEYS = Object.freeze(["resumeDrafts", "resumes", "localResumes", "generatedResumes"]);
   const COMPILED_RESUME_REGISTRY_KEY = "compiledResumeRegistry";
   const RESUME_AUTOSAVE_INTERVAL_MS = 30000;
   const RESUME_AUTOSAVE_DEBOUNCE_MS = 1000;
-  const NOTES_AI_CHAT_STORAGE_KEY = "notesAiAssistantChatHistory";
-  const NOTES_AI_EXPORT_DEFAULT_TITLE = "AI Note Assistant Export";
-  const NOTES_AI_EXPORT_FALLBACK_SUMMARY = "This note contains an exported AI Note Assistant conversation. Please review the original conversation below for full details.";
   const MAX_UPLOAD_RESUME_IMPORT_ROUNDS = 120;
   const MAX_UPLOAD_RESUME_AI_ATTEMPTS = 3;
   const MAX_SELF_CHECK_REJECTIONS_PER_STEP = 3;
  const PROFILE_RESUME_AI_INITIAL_MESSAGE = "Hi, I can help edit your resume. Tell me what you want to change.";
-  const APPLICATION_GUIDANCE_STEPS = [
-    {
-      guidanceType: "job-summary",
-      field: "jobSummary",
-      title: "What this job does",
-      loadingText: "Sending resume guidance...",
-      fallbackText: "No job summary is available for this application yet."
-    },
-    {
-      guidanceType: "key-skills",
-      field: "keySkills",
-      title: "Key skills evaluated",
-      loadingText: "Preparing key skills evaluated...",
-      fallbackText: "No key skill guidance is available for this application yet."
-    },
-    {
-      guidanceType: "revision-suggestions",
-      field: "resumeSuggestions",
-      title: "Resume revision suggestions",
-      loadingText: "Preparing resume revision suggestions...",
-      fallbackText: "No resume revision suggestions are available for this application yet."
-    }
-  ];
 
   const state = {
     activeTab: "dashboard",
@@ -179,8 +130,6 @@
     canonicalData: {
       profile: {},
       resume: {},
-      jobs: [],
-      applications: [],
       autofillAnswers: [],
       settings: {}
     },
@@ -188,7 +137,6 @@
     settings: {},
     trackerSettings: { url: "http://127.0.0.1:8765", token: "" },
     editingAutofillId: "",
-    applicationResumeEditor: null,
     editorMode: "ai",
     aiChat: {
       messages: [{ role: "assistant", text: PROFILE_RESUME_AI_INITIAL_MESSAGE }],
@@ -205,27 +153,13 @@
     resumeTranslation: {
       running: false
     },
-    guidanceLoading: false,
-    guidanceError: "",
-    guidanceCollapsed: false,
-    focusedApplicationId: "",
-    notesPage: {
-      searchQuery: "",
-      companyFilter: "all",
-      statusFilter: "all",
-      aiMessages: [],
-      isThinking: false
-    },
-    notesAiExport: {
-      open: false,
-      isExporting: false
-    },
+    trackerSummary: null,
+    notesPage: { jobs: [], statuses: [], selectedJobId: "", loadedJobId: "", notes: "", aiMessages: [], isThinking: false, loading: false },
     uploadResume: {
       open: false,
       running: false,
       completed: false,
       cancelled: false,
-      context: "profile",
       step: "",
       error: "",
       log: [],
@@ -251,18 +185,6 @@
       lastEntryId: "",
       importedSteps: 0,
       progress: []
-    },
-    notesModal: {
-      open: false,
-      applicationId: null,
-      company: "",
-      jobTitle: "",
-      notes: [],
-      selectedNoteId: null,
-      draft: null,
-      isNewDraft: false,
-      mode: "write",
-      searchQuery: ""
     },
     testSandbox: {
       objects: [],
@@ -945,135 +867,9 @@
   }
 
   function getActiveResume() {
-    if (state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft) {
-      const draft = normalizeApplicationResumeDraft(
-        state.applicationResumeEditor.resumeDraft,
-        state.applicationResumeEditor.application,
-        "",
-        state.appData
-      );
-      state.applicationResumeEditor.resumeDraft = draft;
-      const lang = getResumeLanguage();
-      return normalizeResumeObject(draft.resumes[lang], lang);
-    }
     const dual = ensureDualResumeState();
     const lang = getResumeLanguage();
     return normalizeResumeObject(dual.resumes[lang], lang);
-  }
-
-  function deepClone(value) {
-    try {
-      return JSON.parse(JSON.stringify(value));
-    } catch {
-      return value;
-    }
-  }
-
-  function resolveDualProfileResumeSnapshot(appData) {
-    const dual = appData && typeof appData === "object"
-      ? normalizeDualResumeState(appData)
-      : ensureDualResumeState();
-    return {
-      activeResumeLanguage: dual.activeResumeLanguage === "zh" ? "zh" : "en",
-      resumes: {
-        en: deepClone(normalizeResumeObject(dual.resumes.en, "en")),
-        zh: deepClone(normalizeResumeObject(dual.resumes.zh, "zh"))
-      }
-    };
-  }
-
-  function getApplicationDraftLanguage(draft) {
-    const safe = draft && typeof draft === "object" ? draft : {};
-    if (cleanString(safe.activeResumeLanguage) === "zh") return "zh";
-    if (cleanString(safe.activeResumeLanguage) === "en") return "en";
-    if (cleanString(safe.baseLanguage) === "zh") return "zh";
-    return "en";
-  }
-
-  function hasApplicationDraftDualResumeShape(draft) {
-    return Boolean(
-      draft &&
-      typeof draft === "object" &&
-      (cleanString(draft.activeResumeLanguage) === "en" || cleanString(draft.activeResumeLanguage) === "zh") &&
-      !Object.prototype.hasOwnProperty.call(draft, "resume") &&
-      draft.resumes &&
-      typeof draft.resumes === "object" &&
-      draft.resumes.en &&
-      typeof draft.resumes.en === "object" &&
-      draft.resumes.zh &&
-      typeof draft.resumes.zh === "object"
-    );
-  }
-
-  function normalizeApplicationResumeDraft(rawDraft, application, fallbackSource, appData) {
-    const sourceDraft = rawDraft && typeof rawDraft === "object" ? rawDraft : {};
-    const safeApp = application && typeof application === "object" ? application : {};
-    const profileSnapshot = resolveDualProfileResumeSnapshot(appData);
-    const sourceResumes = sourceDraft.resumes && typeof sourceDraft.resumes === "object" ? sourceDraft.resumes : {};
-    const singleResumeLang = cleanString(sourceDraft.resume && sourceDraft.resume.language) === "zh" ||
-      cleanString(sourceDraft.baseLanguage) === "zh" ||
-      cleanString(sourceDraft.activeResumeLanguage) === "zh"
-      ? "zh"
-      : "en";
-    const singleResume = sourceDraft.resume && typeof sourceDraft.resume === "object"
-      ? normalizeResumeObject(sourceDraft.resume, singleResumeLang)
-      : null;
-    const activeLanguage = getApplicationDraftLanguage(sourceDraft) || profileSnapshot.activeResumeLanguage;
-
-    let enResume = sourceResumes.en && typeof sourceResumes.en === "object"
-      ? normalizeResumeObject(sourceResumes.en, "en")
-      : null;
-    let zhResume = sourceResumes.zh && typeof sourceResumes.zh === "object"
-      ? normalizeResumeObject(sourceResumes.zh, "zh")
-      : null;
-
-    if (!enResume && singleResume && singleResumeLang === "en") {
-      enResume = singleResume;
-    }
-    if (!zhResume && singleResume && singleResumeLang === "zh") {
-      zhResume = singleResume;
-    }
-
-    const createdAt = cleanString(sourceDraft.createdAt) || new Date().toISOString();
-    const normalized = {
-      ...sourceDraft,
-      id: cleanString(sourceDraft.id || sourceDraft.resumeDraftId) ||
-        "resume_draft_" + String(Date.now()) + "_" + Math.random().toString(36).slice(2, 8),
-      applicationId: cleanString(sourceDraft.applicationId || safeApp.applicationId || safeApp.id),
-      source: cleanString(sourceDraft.source) || cleanString(fallbackSource) || "created_on_view_edit_resume_for_legacy_record",
-      baseLanguage: cleanString(sourceDraft.baseLanguage) === "zh" ? "zh" : activeLanguage,
-      activeResumeLanguage: activeLanguage,
-      createdAt: createdAt,
-      updatedAt: cleanString(sourceDraft.updatedAt) || createdAt,
-      resumes: {
-        en: enResume || profileSnapshot.resumes.en || createEmptyResume("en"),
-        zh: zhResume || profileSnapshot.resumes.zh || createEmptyResume("zh")
-      },
-      pdfPath: cleanString(sourceDraft.pdfPath),
-      htmlPath: cleanString(sourceDraft.htmlPath)
-    };
-    delete normalized.resume;
-    return normalized;
-  }
-
-  function buildApplicationResumeDraft(application, fallbackSource, appData) {
-    const safe = application && typeof application === "object" ? application : {};
-    if (safe.resumeDraft && typeof safe.resumeDraft === "object") {
-      return normalizeApplicationResumeDraft(safe.resumeDraft, safe, fallbackSource, appData);
-    }
-    const nowIso = new Date().toISOString();
-    const snapshot = resolveDualProfileResumeSnapshot(appData);
-    return normalizeApplicationResumeDraft({
-      id: "resume_draft_" + String(Date.now()) + "_" + Math.random().toString(36).slice(2, 8),
-      applicationId: cleanString(safe.applicationId || safe.id),
-      source: cleanString(fallbackSource) || "created_on_view_edit_resume_for_legacy_record",
-      baseLanguage: snapshot.activeResumeLanguage,
-      activeResumeLanguage: snapshot.activeResumeLanguage,
-      createdAt: nowIso,
-      updatedAt: nowIso,
-      pdfPath: "",
-      htmlPath: ""
-    }, safe, fallbackSource, appData);
   }
 
   function toDateInputValue(value) {
@@ -1177,15 +973,13 @@
     }
     const safeTab = VALID_TOP_LEVEL_TABS.has(nextTab) ? nextTab : "dashboard";
     const previousTab = state.activeTab;
-    const previousAiContext = cleanString(state.aiChat && state.aiChat.contextKey);
     state.activeTab = safeTab;
     if (
       safeTab === "profile-resume" &&
-      !state.applicationResumeEditor &&
-      (previousTab !== "profile-resume" || previousAiContext.startsWith("application:"))
+      previousTab !== "profile-resume"
     ) {
       state.editorMode = "ai";
-      ensureResumeAiChatContext(false, null);
+      ensureResumeAiChatContext();
     }
 
     const sections = document.querySelectorAll(".view-section");
@@ -2387,21 +2181,7 @@
 
   function applyResumeCleanupForSave(language) {
     const lang = language === "zh" ? "zh" : "en";
-    if (state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft) {
-      const draft = normalizeApplicationResumeDraft(
-        state.applicationResumeEditor.resumeDraft,
-        state.applicationResumeEditor.application,
-        "",
-        state.appData
-      );
-      draft.resumes[lang] = cleanupResumeAfterAI(draft.resumes[lang], lang);
-      draft.resumes = {
-        ...draft.resumes,
-        [lang]: draft.resumes[lang]
-      };
-      state.applicationResumeEditor.resumeDraft = draft;
-      return;
-    }
+
     const dual = ensureDualResumeState();
     dual.resumes[lang] = cleanupResumeAfterAI(dual.resumes[lang], lang);
     state.appData.resumes = {
@@ -2414,24 +2194,11 @@
     const opts = options && typeof options === "object" ? options : {};
     const lang = opts.language === "zh" || opts.language === "en" ? opts.language : getResumeLanguage();
 
-    if (state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft) {
-      const draft = normalizeApplicationResumeDraft(
-        state.applicationResumeEditor.resumeDraft,
-        state.applicationResumeEditor.application,
-        "",
-        state.appData
-      );
-      draft.resumes[lang] = collectActiveResumeFromForm(lang);
-      draft.activeResumeLanguage = lang;
-      draft.resumes = normalizeSharedResumeLanguages(draft.resumes);
-      state.applicationResumeEditor.resumeDraft = draft;
-    } else {
-      syncProfileResumeFormIntoState(lang);
-      state.appData.resumes = normalizeSharedResumeLanguages(state.appData.resumes);
-      state.appData.activeResumeLanguage = lang;
-      if (state.appData.profile && typeof state.appData.profile === "object") {
-        state.appData.profile.resumeLanguage = lang;
-      }
+    syncProfileResumeFormIntoState(lang);
+    state.appData.resumes = normalizeSharedResumeLanguages(state.appData.resumes);
+    state.appData.activeResumeLanguage = lang;
+    if (state.appData.profile && typeof state.appData.profile === "object") {
+      state.appData.profile.resumeLanguage = lang;
     }
 
     if (opts.markDirty) {
@@ -2469,46 +2236,6 @@
       state.resumeAutosave.cleanupEmptyObjects = false;
       state.resumeAutosave.cleanupLanguage = "";
     }
-  }
-
-  async function saveApplicationResumeStateFromSharedState() {
-    const editor = state.applicationResumeEditor;
-    if (!editor || !editor.resumeDraft) {
-      return;
-    }
-
-    const draft = normalizeApplicationResumeDraft(editor.resumeDraft, editor.application, "", state.appData);
-    const nextDraft = {
-      ...draft,
-      activeResumeLanguage: draft.activeResumeLanguage === "zh" ? "zh" : "en",
-      updatedAt: new Date().toISOString(),
-      resumes: normalizeSharedResumeLanguages(draft.resumes)
-    };
-    const canonical = await getCanonicalDataForMutation();
-    const applications = Array.isArray(canonical.applications) ? canonical.applications.slice() : [];
-    const targetId = cleanString(nextDraft.applicationId || editor.applicationId);
-    const targetIndex = applications.findIndex((item) => cleanString(item && (item.applicationId || item.id)) === targetId);
-    if (targetIndex < 0) {
-      throw new Error("Application record was not found.");
-    }
-
-    applications[targetIndex] = {
-      ...(applications[targetIndex] && typeof applications[targetIndex] === "object" ? applications[targetIndex] : {}),
-      resumeDraftId: cleanString(nextDraft.id),
-      resumeDraft: nextDraft,
-      updatedAt: new Date().toISOString()
-    };
-    await saveCanonicalDataPatch({ applications: applications });
-    state.canonicalData = {
-      ...(canonical && typeof canonical === "object" ? canonical : {}),
-      applications: applications
-    };
-    state.applicationResumeEditor = {
-      ...editor,
-      applicationId: targetId,
-      application: applications[targetIndex],
-      resumeDraft: nextDraft
-    };
   }
 
   async function saveProfileResumeStateFromSharedState() {
@@ -2578,18 +2305,14 @@
       if (cleanupEmptyObjects) {
         applyResumeCleanupForSave(cleanupLanguage);
       }
-      if (state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft) {
-        await saveApplicationResumeStateFromSharedState();
-      } else {
-        await saveProfileResumeStateFromSharedState();
-      }
+      await saveProfileResumeStateFromSharedState();
       updateResumeAutosaveClean(savedRevision);
     })();
 
     try {
       await resumeAutosavePromise;
       if (!opts.silent) {
-        setStatus(state.applicationResumeEditor ? "Application resume saved." : "Profile saved.");
+        setStatus("Profile saved.");
       }
     } catch (error) {
       state.resumeAutosave.dirty = true;
@@ -2652,19 +2375,8 @@
     const firstName = getInputValue("profile-firstName");
     const lastName = getInputValue("profile-lastName");
     const lang = languageOverride === "zh" || languageOverride === "en" ? languageOverride : getResumeLanguage();
-    let current;
-    if (state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft) {
-      const draft = normalizeApplicationResumeDraft(
-        state.applicationResumeEditor.resumeDraft,
-        state.applicationResumeEditor.application,
-        "",
-        state.appData
-      );
-      state.applicationResumeEditor.resumeDraft = draft;
-      current = normalizeResumeObject(draft.resumes[lang], lang);
-    } else {
-      current = normalizeResumeObject(ensureDualResumeState().resumes[lang], lang);
-    }
+    const current = normalizeResumeObject(ensureDualResumeState().resumes[lang], lang);
+
     const header = current.header || createEmptyHeader();
     function headerField(inputId) {
       return normalizeResumeField({
@@ -2738,81 +2450,20 @@
     };
   }
 
-  function toCanonicalStatus(status) {
-    if (dataBoundary && typeof dataBoundary.normalizeApplication === "function") {
-      const normalized = dataBoundary.normalizeApplication({ status: status });
-      return cleanString(normalized && normalized.status) || "Saved";
-    }
-
-    const lowered = cleanString(status).toLowerCase();
-    if (lowered === "applied") return "Applied";
-    if (lowered === "interview" || lowered === "interviewing") return "Interview";
-    if (lowered === "offer" || lowered === "accepted") return "Offer";
-    if (lowered === "rejected") return "Rejected";
-    if (lowered === "withdrawn") return "Withdrawn";
-    return "Saved";
-  }
-
-  function countByCanonicalStatus(applications, targetStatus) {
-    const list = Array.isArray(applications) ? applications : [];
-    const target = cleanString(targetStatus) || "Saved";
-    return list.filter((item) => toCanonicalStatus(item && item.status) === target).length;
-  }
-
-  function getCanonicalApplications() {
-    return Array.isArray(state.canonicalData && state.canonicalData.applications) ? state.canonicalData.applications : [];
-  }
-
-  function getCanonicalJobs() {
-    return Array.isArray(state.canonicalData && state.canonicalData.jobs) ? state.canonicalData.jobs : [];
-  }
-
   function renderDashboard() {
-    const applications = getCanonicalApplications();
-
-    const stats = {
-      total: applications.length,
-      saved: countByCanonicalStatus(applications, "Saved"),
-      applied: countByCanonicalStatus(applications, "Applied"),
-      interview: countByCanonicalStatus(applications, "Interview"),
-      offer: countByCanonicalStatus(applications, "Offer"),
-      rejected: countByCanonicalStatus(applications, "Rejected")
-    };
-
-    if (dashboardStatTotalEl) dashboardStatTotalEl.textContent = String(stats.total);
-    if (dashboardStatSavedEl) dashboardStatSavedEl.textContent = String(stats.saved);
-    if (dashboardStatAppliedEl) dashboardStatAppliedEl.textContent = String(stats.applied);
-    if (dashboardStatInterviewEl) dashboardStatInterviewEl.textContent = String(stats.interview);
-    if (dashboardStatOfferEl) dashboardStatOfferEl.textContent = String(stats.offer);
-    if (dashboardStatRejectedEl) dashboardStatRejectedEl.textContent = String(stats.rejected);
+    const counts = state.trackerSummary;
+    if (dashboardStatOfferEl) dashboardStatOfferEl.textContent = counts ? String(counts.offer) : "—";
+    if (dashboardStatRejectedEl) dashboardStatRejectedEl.textContent = counts ? String(counts.rejected) : "—";
+    if (dashboardStatPendingEl) dashboardStatPendingEl.textContent = counts ? String(counts.pending) : "—";
   }
 
   function renderProfile() {
     const dual = ensureDualResumeState();
-    const appMode = Boolean(state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft);
-    const appDraft = appMode ? state.applicationResumeEditor.resumeDraft : null;
-    const normalizedAppDraft = appMode
-      ? normalizeApplicationResumeDraft(appDraft, state.applicationResumeEditor.application, "", state.appData)
-      : null;
-    if (appMode) {
-      state.applicationResumeEditor.resumeDraft = normalizedAppDraft;
-    }
-    const lang = appMode
-      ? getApplicationDraftLanguage(normalizedAppDraft)
-      : (dual.activeResumeLanguage === "zh" ? "zh" : "en");
-    const resume = appMode ? normalizeResumeObject(normalizedAppDraft.resumes[lang], lang) : normalizeResumeObject(dual.resumes[lang], lang);
+    const lang = dual.activeResumeLanguage === "zh" ? "zh" : "en";
+    const resume = normalizeResumeObject(dual.resumes[lang], lang);
     const header = resume.header || createEmptyHeader();
     const contact = normalizeContactInfo(header.contact, header);
-
-    if (profileResumeViewEl) {
-      profileResumeViewEl.classList.toggle("is-application-resume-mode", appMode);
-    }
-    ensureResumeAiChatContext(appMode, appMode ? state.applicationResumeEditor.application : null);
-    if (appMode && state.uploadResume && state.uploadResume.open && !state.uploadResume.running) {
-      state.uploadResume.open = false;
-      renderUploadResumeModal();
-    }
-
+    ensureResumeAiChatContext();
     setInputValue("profile-firstName", contact.firstName);
     setInputValue("profile-lastName", contact.lastName);
     setInputValue("profile-email", contact.email);
@@ -2824,57 +2475,12 @@
         profileLinksListEl.appendChild(createContactLinkRow(link));
       });
     }
-
     const radioEl = document.getElementById(lang === "zh" ? "resume-lang-zh" : "resume-lang-en");
     if (radioEl) radioEl.checked = true;
-    if (applicationResumeContextEl) {
-      if (appMode) {
-        const app = state.applicationResumeEditor.application || {};
-        applicationResumeContextEl.hidden = false;
-        applicationResumeContextEl.textContent = [
-          "Application Resume",
-          cleanString(app.company),
-          cleanString(app.jobTitle || app.title),
-          cleanString(app.jobUrl || app.url),
-          cleanString(app.extractedAt) ? "Extracted: " + cleanString(app.extractedAt) : ""
-        ].filter(Boolean).join(" | ");
-      } else {
-        applicationResumeContextEl.hidden = true;
-        applicationResumeContextEl.textContent = "";
-      }
-    }
-    if (profileResumeTopBar) {
-      profileResumeTopBar.hidden = appMode;
-    }
-    if (uploadResumeProfileTopBtn) {
-      uploadResumeProfileTopBtn.hidden = appMode;
-    }
-    if (appModeTopBar) {
-      appModeTopBar.hidden = !appMode;
-    }
-    if (profileResumeSubtitleEl) {
-      profileResumeSubtitleEl.hidden = true;
-    }
     const pageTitleEl = document.querySelector("#resume-editor-panel .editor-panel-header h2");
-    if (pageTitleEl) {
-      pageTitleEl.textContent = appMode ? "Application Resume" : (UI_LABELS[editorLang] || UI_LABELS.en).pageTitle;
-    }
-    if (backToApplicationsBtn) {
-      backToApplicationsBtn.hidden = !appMode;
-    }
-    if (saveProfileResumeTopBtn) {
-      saveProfileResumeTopBtn.hidden = appMode;
-      saveProfileResumeTopBtn.textContent = "Save";
-    }
-    if (saveAppResumeTopBtn) {
-      saveAppResumeTopBtn.hidden = !appMode;
-      saveAppResumeTopBtn.textContent = "Save";
-    }
+    if (pageTitleEl) pageTitleEl.textContent = (UI_LABELS[editorLang] || UI_LABELS.en).pageTitle;
     renderRequiredFieldWaivers();
     renderEditorModeUI();
-  }
-
-  function renderGuidancePanel() {
   }
 
   function renderResume() {
@@ -2946,16 +2552,6 @@
     });
   }
 
-  function parseDateToMillis(value) {
-    const text = cleanString(value);
-    if (!text) {
-      return 0;
-    }
-
-    const ms = Date.parse(text);
-    return Number.isFinite(ms) ? ms : 0;
-  }
-
   function formatDateLabel(value) {
     const text = cleanString(value);
     if (!text) {
@@ -2968,469 +2564,6 @@
     }
 
     return date.toISOString().slice(0, 10);
-  }
-
-  function getLegacyApplications() {
-    return Array.isArray(state.appData && state.appData.applications) ? state.appData.applications : [];
-  }
-
-  function buildLegacyApplicationIndex() {
-    const index = new Map();
-    const list = getLegacyApplications();
-
-    for (let itemIndex = 0; itemIndex < list.length; itemIndex += 1) {
-      const item = list[itemIndex] && typeof list[itemIndex] === "object" ? list[itemIndex] : {};
-      const id = cleanString(item.id || item.applicationId);
-      if (id && !index.has(id)) {
-        index.set(id, item);
-      }
-    }
-
-    return index;
-  }
-
-  function buildApplicationRows() {
-    const canonicalApps = getCanonicalApplications();
-    const canonicalJobs = getCanonicalJobs();
-    const jobsById = new Map();
-    const jobsByUrl = new Map();
-    const legacyById = buildLegacyApplicationIndex();
-
-    canonicalJobs.forEach((job) => {
-      const safe = job && typeof job === "object" ? job : {};
-      const jobId = cleanString(safe.jobId || safe.id);
-      const url = cleanString(safe.url || safe.jobUrl);
-      if (jobId) {
-        jobsById.set(jobId, safe);
-      }
-      if (url && !jobsByUrl.has(url.toLowerCase())) {
-        jobsByUrl.set(url.toLowerCase(), safe);
-      }
-    });
-
-    return canonicalApps.map((application) => {
-      const safeApp = application && typeof application === "object" ? application : {};
-      const applicationId = cleanString(safeApp.applicationId || safeApp.id);
-      const legacy = legacyById.get(applicationId) || {};
-      const jobId = cleanString(safeApp.jobId);
-      const jobFromId = jobId ? jobsById.get(jobId) : null;
-      const legacyUrl = cleanString(legacy.jobUrl || legacy.url);
-      const jobFromUrl = legacyUrl ? jobsByUrl.get(legacyUrl.toLowerCase()) : null;
-      const job = jobFromId || jobFromUrl || {};
-
-      const company = cleanString(safeApp.company) || cleanString(job.company) || cleanString(legacy.company) || "-";
-      const jobTitle = cleanString(safeApp.jobTitle || safeApp.title) || cleanString(job.title) || cleanString(legacy.role || legacy.jobTitle || legacy.title) || "-";
-      const status = toCanonicalStatus(safeApp.status || legacy.status);
-      const location = cleanString(safeApp.location) || cleanString(job.location || job.jobLocation || legacy.location || legacy.jobLocation) || "-";
-      const jobUrl = cleanString(safeApp.jobUrl || safeApp.url || job.url || job.jobUrl || legacy.jobUrl || legacy.url);
-      const savedDate = cleanString(safeApp.createdAt || legacy.createdAt || legacy.savedAt || safeApp.updatedAt || legacy.updatedAt);
-      const appliedDate = cleanString(safeApp.appliedAt || legacy.appliedAt);
-      const sortDate = parseDateToMillis(appliedDate || savedDate);
-      const resumeId = cleanString(safeApp.resumeId || safeApp.resumeVersionId || legacy.resumeId || legacy.resumeVersion || legacy.resumeVersionId);
-
-      return {
-        applicationId: applicationId,
-        jobId: cleanString(job.jobId || job.id) || jobId,
-        resumeId: resumeId,
-        company: company,
-        jobTitle: jobTitle,
-        status: status,
-        location: location,
-        jobUrl: jobUrl,
-        savedDate: savedDate,
-        appliedDate: appliedDate,
-        sortDate: sortDate,
-        notes: Array.isArray(safeApp.notes) ? safeApp.notes : []
-      };
-    });
-  }
-
-  function renderApplications() {
-    if (!applicationsTableBodyEl) {
-      return;
-    }
-
-    const focusedApplicationId = cleanString(state.focusedApplicationId);
-    if (focusedApplicationId) {
-      if (applicationsSearchEl) applicationsSearchEl.value = "";
-      if (applicationsFilterEl) applicationsFilterEl.value = "all";
-    }
-
-    const searchToken = cleanString(applicationsSearchEl && applicationsSearchEl.value).toLowerCase();
-    const filter = cleanString(applicationsFilterEl && applicationsFilterEl.value) || "all";
-    const sortBy = cleanString(applicationsSortEl && applicationsSortEl.value) || "newest";
-    const sourceList = buildApplicationRows();
-
-    let list = sourceList;
-    if (filter !== "all") {
-      list = list.filter((item) => cleanString(item && item.status) === filter);
-    }
-
-    if (searchToken) {
-      list = list.filter((item) => {
-        const haystack = [
-          cleanString(item && item.company),
-          cleanString(item && item.jobTitle),
-          cleanString(item && item.location),
-          cleanString(item && item.status)
-        ].join(" ").toLowerCase();
-
-        return haystack.includes(searchToken);
-      });
-    }
-
-    list.sort((left, right) => {
-      const leftDate = Number(left && left.sortDate) || 0;
-      const rightDate = Number(right && right.sortDate) || 0;
-
-      if (sortBy === "oldest") {
-        return leftDate - rightDate;
-      }
-      return rightDate - leftDate;
-    });
-
-    applicationsTableBodyEl.innerHTML = "";
-
-    if (!list.length) {
-      const row = document.createElement("tr");
-      row.innerHTML = '<td class="applications-empty" colspan="7">No applications match the current filters.</td>';
-      applicationsTableBodyEl.appendChild(row);
-      return;
-    }
-
-    list.forEach((item) => {
-      const company = escapeHtml(cleanString(item && item.company) || "-");
-      const jobTitle = escapeHtml(cleanString(item && item.jobTitle) || "-");
-      const status = cleanString(item && item.status) || "Saved";
-      const location = escapeHtml(cleanString(item && item.location) || "-");
-      const savedDate = escapeHtml(formatDateLabel(item && item.savedDate));
-      const appliedDate = escapeHtml(formatDateLabel(item && item.appliedDate));
-      const applicationId = escapeHtml(cleanString(item && item.applicationId));
-      const jobId = escapeHtml(cleanString(item && item.jobId));
-      const jobUrl = escapeHtml(cleanString(item && item.jobUrl));
-      const openDisabled = cleanString(item && item.jobUrl) ? "" : "disabled";
-      const notesArr = Array.isArray(item && item.notes) ? item.notes : [];
-      const notesCount = notesArr.length;
-      const notesLabel = notesCount > 0 ? "Notes (" + String(notesCount) + ")" : "Notes";
-
-      const row = document.createElement("tr");
-      row.dataset.applicationId = cleanString(item && item.applicationId);
-      row.dataset.jobId = cleanString(item && item.jobId);
-      row.dataset.jobUrl = cleanString(item && item.jobUrl);
-      if (focusedApplicationId && focusedApplicationId === cleanString(item && item.applicationId)) {
-        row.classList.add("application-row-highlight");
-      }
-      row.innerHTML = `
-        <td>${company}</td>
-        <td>${jobTitle}</td>
-        <td>
-          <select class="status-select" data-action="status-update" data-application-id="${applicationId}">
-            ${APPLICATION_STATUSES.map((option) => `<option value="${option}" ${status === option ? "selected" : ""}>${option}</option>`).join("")}
-          </select>
-        </td>
-        <td>${location}</td>
-        <td>${savedDate}</td>
-        <td>${appliedDate}</td>
-        <td>
-          <div class="button-row">
-            <button type="button" class="secondary-btn small-btn" data-action="open-job" data-job-url="${jobUrl}" ${openDisabled}>Open Job</button>
-            <button type="button" class="secondary-btn small-btn" data-action="view-resume" data-application-id="${applicationId}" data-job-id="${jobId}">View / Edit Resume</button>
-            <button type="button" class="secondary-btn small-btn" data-action="open-notes" data-application-id="${applicationId}">${escapeHtml(notesLabel)}</button>
-            <button type="button" class="secondary-btn small-btn" data-action="delete-application" data-application-id="${applicationId}">Delete</button>
-          </div>
-        </td>
-      `;
-
-      applicationsTableBodyEl.appendChild(row);
-    });
-
-    if (focusedApplicationId) {
-      setTimeout(function focusApplicationRow() {
-        const rows = Array.from(applicationsTableBodyEl.querySelectorAll("tr[data-application-id]"));
-        const row = rows.find(function findFocusedRow(item) {
-          return cleanString(item && item.getAttribute("data-application-id")) === focusedApplicationId;
-        });
-        if (row && typeof row.scrollIntoView === "function") {
-          row.scrollIntoView({ block: "center" });
-        }
-        if (row) {
-          row.classList.add("application-row-highlight");
-          setTimeout(function clearApplicationHighlight() {
-            row.classList.remove("application-row-highlight");
-            if (cleanString(state.focusedApplicationId) === focusedApplicationId) {
-              state.focusedApplicationId = "";
-            }
-          }, 3500);
-        }
-      }, 50);
-    }
-  }
-
-  function stripMarkdownForPreview(value) {
-    return cleanString(value)
-      .replace(/```[\s\S]*?```/g, " ")
-      .replace(/`([^`]*)`/g, "$1")
-      .replace(/\[([^\]]*)\]\(([^)]*)\)/g, "$1")
-      .replace(/[#>*_\-[\]]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }
-
-  function getAllApplicationNotes() {
-    const rows = buildApplicationRows();
-    const allNotes = [];
-    rows.forEach(function eachApplication(row) {
-      const notes = normalizeNotes(Array.isArray(row && row.notes) ? row.notes : []);
-      notes.forEach(function eachNote(note) {
-        allNotes.push({
-          noteId: cleanString(note.id),
-          applicationId: cleanString(row && row.applicationId),
-          company: cleanString(row && row.company) || "-",
-          jobTitle: cleanString(row && row.jobTitle) || "-",
-          status: cleanString(row && row.status) || "Saved",
-          location: cleanString(row && row.location) || "-",
-          savedDate: cleanString(row && row.savedDate),
-          appliedDate: cleanString(row && row.appliedDate),
-          noteDate: cleanString(note.date),
-          noteTitle: cleanString(note.title) || "Untitled Note",
-          contentMarkdown: String(note.contentMarkdown || ""),
-          createdAt: cleanString(note.createdAt),
-          updatedAt: cleanString(note.updatedAt)
-        });
-      });
-    });
-    return allNotes.sort(function sortNewest(left, right) {
-      const leftDate = parseDateToMillis(left.noteDate) || parseDateToMillis(left.updatedAt) || parseDateToMillis(left.createdAt);
-      const rightDate = parseDateToMillis(right.noteDate) || parseDateToMillis(right.updatedAt) || parseDateToMillis(right.createdAt);
-      return rightDate - leftDate;
-    });
-  }
-
-  function updateSelectOptions(selectEl, values, allValue, allLabel, selectedValue) {
-    if (!selectEl) return;
-    const current = cleanString(selectedValue) || allValue;
-    const options = [allValue].concat(values);
-    selectEl.innerHTML = "";
-    options.forEach(function addOption(value) {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = value === allValue ? allLabel : value;
-      selectEl.appendChild(option);
-    });
-    selectEl.value = options.includes(current) ? current : allValue;
-  }
-
-  function getFilteredGlobalNotes(allNotes) {
-    const notesState = state.notesPage || {};
-    const query = cleanString(notesState.searchQuery).toLowerCase();
-    const companyFilter = cleanString(notesState.companyFilter) || "all";
-    const statusFilter = cleanString(notesState.statusFilter) || "all";
-    return allNotes.filter(function matchNote(note) {
-      if (companyFilter !== "all" && cleanString(note.company) !== companyFilter) {
-        return false;
-      }
-      if (statusFilter !== "all" && cleanString(note.status) !== statusFilter) {
-        return false;
-      }
-      if (!query) {
-        return true;
-      }
-      const haystack = [
-        note.company,
-        note.jobTitle,
-        note.noteTitle,
-        note.contentMarkdown,
-        note.status
-      ].map(cleanString).join(" ").toLowerCase();
-      return haystack.includes(query);
-    });
-  }
-
-  function renderGlobalNotesList(notes, totalCount) {
-    if (!globalNotesListEl) return;
-    globalNotesListEl.innerHTML = "";
-
-    if (totalCount === 0) {
-      const empty = document.createElement("div");
-      empty.className = "global-notes-empty";
-      empty.innerHTML = "<p>No notes yet.</p><p>Notes you create from Applications will appear here.</p>";
-      globalNotesListEl.appendChild(empty);
-      return;
-    }
-
-    if (!notes.length) {
-      const empty = document.createElement("div");
-      empty.className = "global-notes-empty";
-      empty.textContent = "No notes match the current search and filters.";
-      globalNotesListEl.appendChild(empty);
-      return;
-    }
-
-    notes.forEach(function renderNoteCard(note) {
-      const card = document.createElement("article");
-      card.className = "global-note-card";
-      const preview = stripMarkdownForPreview(note.contentMarkdown).slice(0, 220);
-      const status = cleanString(note.status) || "Saved";
-      card.innerHTML = `
-        <div class="global-note-card-top">
-          <div>
-            <h4>${escapeHtml(note.company)}</h4>
-            <p>${escapeHtml(note.jobTitle)}</p>
-          </div>
-          <span class="status-pill">${escapeHtml(status)}</span>
-        </div>
-        <div class="global-note-meta">
-          <span>${escapeHtml(formatDateLabel(note.noteDate))}</span>
-          <span>${escapeHtml(note.location)}</span>
-        </div>
-        <h5>${escapeHtml(note.noteTitle)}</h5>
-        <p class="global-note-preview">${escapeHtml(preview || "No note content.")}</p>
-        <div class="button-row global-note-actions">
-          <button type="button" class="secondary-btn small-btn" data-action="global-open-application" data-application-id="${escapeHtml(note.applicationId)}">Open Application</button>
-          <button type="button" class="secondary-btn small-btn" data-action="global-edit-note" data-application-id="${escapeHtml(note.applicationId)}" data-note-id="${escapeHtml(note.noteId)}">Edit Note</button>
-        </div>
-      `;
-      globalNotesListEl.appendChild(card);
-    });
-  }
-
-  function getChromeLocalStorageArea() {
-    if (globalThis.chrome && chrome.storage && chrome.storage.local) {
-      return chrome.storage.local;
-    }
-    return null;
-  }
-
-  function getChromeLocalValue(key) {
-    const storageArea = getChromeLocalStorageArea();
-    if (!storageArea) {
-      return Promise.resolve(undefined);
-    }
-    return new Promise(function(resolve, reject) {
-      storageArea.get([key], function(result) {
-        if (chrome.runtime && chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        resolve(result ? result[key] : undefined);
-      });
-    });
-  }
-
-  function setChromeLocalValue(key, value) {
-    const storageArea = getChromeLocalStorageArea();
-    if (!storageArea) {
-      return Promise.resolve();
-    }
-    return new Promise(function(resolve, reject) {
-      storageArea.set({ [key]: value }, function() {
-        if (chrome.runtime && chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        resolve();
-      });
-    });
-  }
-
-  function removeChromeLocalValue(key) {
-    const storageArea = getChromeLocalStorageArea();
-    if (!storageArea) {
-      return Promise.resolve();
-    }
-    return new Promise(function(resolve, reject) {
-      storageArea.remove([key], function() {
-        if (chrome.runtime && chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-          return;
-        }
-        resolve();
-      });
-    });
-  }
-
-  function normalizeNotesAiMessage(message) {
-    const safe = message && typeof message === "object" ? message : {};
-    const role = cleanString(safe.role).toLowerCase() === "user" ? "user" : "assistant";
-    const content = cleanString(safe.content || safe.text);
-    if (!content) {
-      return null;
-    }
-    return {
-      id: cleanString(safe.id) || createId("notes_ai_msg"),
-      role: role,
-      content: content,
-      createdAt: cleanString(safe.createdAt) || new Date().toISOString()
-    };
-  }
-
-  async function loadNotesAiMessages() {
-    const stored = await getChromeLocalValue(NOTES_AI_CHAT_STORAGE_KEY);
-    state.notesPage.aiMessages = Array.isArray(stored)
-      ? stored.map(normalizeNotesAiMessage).filter(Boolean)
-      : [];
-  }
-
-  async function persistNotesAiMessages() {
-    const messages = state.notesPage && Array.isArray(state.notesPage.aiMessages)
-      ? state.notesPage.aiMessages.map(normalizeNotesAiMessage).filter(Boolean)
-      : [];
-    state.notesPage.aiMessages = messages;
-    await setChromeLocalValue(NOTES_AI_CHAT_STORAGE_KEY, messages);
-  }
-
-  function renderNotesAiMessages() {
-    if (!notesAiMessagesEl) return;
-    const messages = state.notesPage && Array.isArray(state.notesPage.aiMessages) ? state.notesPage.aiMessages : [];
-    notesAiMessagesEl.innerHTML = "";
-    messages.forEach(function renderMessage(message) {
-      const bubble = document.createElement("div");
-      const role = cleanString(message && message.role) === "user" ? "user" : "assistant";
-      bubble.className = "notes-ai-message notes-ai-message-" + role;
-      bubble.textContent = cleanString(message && (message.content || message.text));
-      notesAiMessagesEl.appendChild(bubble);
-    });
-    if (state.notesPage && state.notesPage.isThinking) {
-      const thinking = document.createElement("div");
-      thinking.className = "notes-ai-message notes-ai-message-assistant";
-      thinking.textContent = "Thinking...";
-      notesAiMessagesEl.appendChild(thinking);
-    }
-    notesAiMessagesEl.scrollTop = notesAiMessagesEl.scrollHeight;
-  }
-
-  function renderGlobalNotesPage() {
-    const allNotes = getAllApplicationNotes();
-    const companies = uniqueStringArray(allNotes.map(function(note) { return note.company; })).sort();
-    const statuses = uniqueStringArray(allNotes.map(function(note) { return note.status; })).sort();
-    const notesState = state.notesPage || {};
-
-    if (globalNotesSearchEl) {
-      globalNotesSearchEl.value = cleanString(notesState.searchQuery);
-    }
-    updateSelectOptions(globalNotesCompanyFilterEl, companies, "all", "All Companies", notesState.companyFilter);
-    updateSelectOptions(globalNotesStatusFilterEl, statuses, "all", "All Statuses", notesState.statusFilter);
-    state.notesPage.companyFilter = cleanString(globalNotesCompanyFilterEl && globalNotesCompanyFilterEl.value) || "all";
-    state.notesPage.statusFilter = cleanString(globalNotesStatusFilterEl && globalNotesStatusFilterEl.value) || "all";
-
-    renderGlobalNotesList(getFilteredGlobalNotes(allNotes), allNotes.length);
-
-    if (notesAiEmptyHintEl) {
-      notesAiEmptyHintEl.classList.toggle("hidden", allNotes.length > 0);
-    }
-    if (notesAiInputEl) {
-      notesAiInputEl.disabled = Boolean(notesState.isThinking) || allNotes.length === 0;
-    }
-    if (notesAiSendBtn) {
-      notesAiSendBtn.disabled = Boolean(notesState.isThinking) || allNotes.length === 0;
-    }
-    if (notesAiClearBtn) {
-      notesAiClearBtn.disabled = Boolean(notesState.isThinking) || !Array.isArray(notesState.aiMessages) || notesState.aiMessages.length === 0;
-    }
-    if (notesAiExportBtn) {
-      notesAiExportBtn.disabled = Boolean(notesState.isThinking) || !Array.isArray(notesState.aiMessages) || notesState.aiMessages.length === 0;
-    }
-    renderNotesAiMessages();
   }
 
   function truncateNotesText(value, limit) {
@@ -3451,702 +2584,187 @@
     }).filter(Boolean).slice(-20);
   }
 
-  function formatGuidanceMessage(title, content) {
-    const body = cleanString(content);
-    return cleanString(title) + "\n\n" + (body || "No guidance available.");
-  }
-
   function buildProfileResumeAiMessages() {
     return [{ role: "assistant", text: PROFILE_RESUME_AI_INITIAL_MESSAGE }];
   }
 
-  function getApplicationGuidanceValue(application, step) {
-    const app = application && typeof application === "object" ? application : {};
-    const guidance = app.resumeGuidance && typeof app.resumeGuidance === "object" ? app.resumeGuidance : null;
-    if (!guidance || !step) {
-      return "";
+  function ensureResumeAiChatContext() {
+    if (!Array.isArray(state.aiChat.messages) || state.aiChat.messages.length === 0) {
+      state.aiChat.messages = buildProfileResumeAiMessages();
     }
-    const value = guidance[step.field];
-    if (Array.isArray(value)) {
-      return value.map(cleanString).filter(Boolean).map(function(item) { return "- " + item; }).join("\n");
-    }
-    return cleanString(value);
+    state.aiChat.contextKey = "profile";
   }
 
-  function getCurrentApplicationResumeForGuidance() {
-    const lang = getResumeLanguage();
-    if (state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft) {
-      return collectActiveResumeFromForm(lang);
-    }
-    return getActiveResume();
+  function trackerStatusLabel(job) {
+    const status = state.notesPage.statuses.find(item => item.id === job.status_id);
+    return status ? status.label : job.status_id;
   }
 
-  function getApplicationResumeSummaryForGuidance(resume) {
-    const rfns = globalThis.ResumeAiFunctions;
-    if (rfns && typeof rfns.buildCompactResumeSummary === "function") {
-      return rfns.buildCompactResumeSummary(resume);
+  function renderTrackerNotesPage() {
+    const notes = state.notesPage;
+    if (trackerNotesJobEl) {
+      trackerNotesJobEl.innerHTML = "";
+      for (const job of notes.jobs) {
+        const option = document.createElement("option");
+        option.value = job.id;
+        option.textContent = `${job.company} — ${job.job_title} (${trackerStatusLabel(job)})`;
+        trackerNotesJobEl.appendChild(option);
+      }
+      trackerNotesJobEl.value = notes.selectedJobId;
+      trackerNotesJobEl.disabled = notes.loading || !notes.jobs.length;
     }
+    const disabled = notes.loading || !notes.selectedJobId || notes.loadedJobId !== notes.selectedJobId;
+    if (trackerNotesEditorEl) trackerNotesEditorEl.disabled = disabled;
+    if (trackerNotesSaveBtn) trackerNotesSaveBtn.disabled = disabled;
+    if (notesAiInputEl) notesAiInputEl.disabled = disabled || notes.isThinking;
+    if (notesAiSendBtn) notesAiSendBtn.disabled = disabled || notes.isThinking;
+    if (notesAiSaveBtn) notesAiSaveBtn.disabled = disabled || notes.isThinking || !notes.aiMessages.some(item => item.role === "assistant");
+    if (notesAiClearBtn) notesAiClearBtn.disabled = notes.isThinking || !notes.aiMessages.length;
+    if (notesAiMessagesEl) {
+      notesAiMessagesEl.innerHTML = "";
+      for (const message of notes.aiMessages) {
+        const bubble = document.createElement("div");
+        bubble.className = "notes-ai-message notes-ai-message-" + message.role;
+        bubble.textContent = message.content;
+        notesAiMessagesEl.appendChild(bubble);
+      }
+      if (notes.isThinking) {
+        const bubble = document.createElement("div");
+        bubble.className = "notes-ai-message notes-ai-message-assistant";
+        bubble.textContent = "Thinking...";
+        notesAiMessagesEl.appendChild(bubble);
+      }
+      notesAiMessagesEl.scrollTop = notesAiMessagesEl.scrollHeight;
+    }
+  }
+
+  async function loadTrackerNotes(jobId) {
+    state.notesPage.loadedJobId = "";
+    state.notesPage.notes = "";
+    if (trackerNotesEditorEl) trackerNotesEditorEl.value = "";
+    renderTrackerNotesPage();
     try {
-      return JSON.stringify(resume || {}, null, 2);
-    } catch {
-      return "";
+      const result = await tracker.getNotes(jobId);
+      if (state.notesPage.selectedJobId !== jobId) return;
+      state.notesPage.notes = result.notes;
+      state.notesPage.loadedJobId = jobId;
+      if (trackerNotesEditorEl) trackerNotesEditorEl.value = result.notes;
+    } finally {
+      renderTrackerNotesPage();
     }
   }
 
-  function hasResumeContentForGuidance(resume) {
-    const safeResume = resume && typeof resume === "object" ? resume : {};
-    const header = safeResume.header && typeof safeResume.header === "object" ? safeResume.header : {};
-    const contact = header.contact && typeof header.contact === "object" ? header.contact : {};
-    const contactFields = [contact.firstName, contact.lastName, contact.email, contact.phone, contact.location];
-    const links = Array.isArray(contact.links) ? contact.links : [];
-    if (contactFields.some(function hasField(value) { return Boolean(cleanString(value)); }) ||
-        links.some(function hasLink(link) { return Boolean(cleanString(link && link.text)); })) {
-      return true;
-    }
-    const sections = Array.isArray(safeResume.sections) ? safeResume.sections : [];
-    return sections.some(function hasSectionContent(section) {
-      const name = cleanString(section && (section.sectionName || section.title || section.type));
-      const blocks = Array.isArray(section && section.blocks) ? section.blocks : [];
-      return Boolean(name) || blocks.some(function hasBlockContent(block) {
-        const lines = Array.isArray(block && block.lines) ? block.lines : [];
-        return lines.some(function hasLineText(line) {
-          return Boolean(cleanString(line && line.text));
-        });
-      });
-    });
-  }
-
-  function isStaleNoResumeSuggestions(text) {
-    const value = cleanString(text).toLowerCase();
-    return Boolean(value) && (
-      value.includes("no current resume content was provided") ||
-      value.includes("no resume content was provided") ||
-      value.includes("since no current resume content") ||
-      value.includes("without current resume content")
-    );
-  }
-
-  function getGuidanceFallbackContent(step, resumeHasContent) {
-    if (step && step.guidanceType === "revision-suggestions" && !resumeHasContent) {
-      return "I do not see much resume content yet.";
-    }
-    return step.fallbackText;
-  }
-
-  function buildApplicationGuidanceMessage(applicationId, step, content) {
-    return {
-      role: "assistant",
-      text: formatGuidanceMessage(step.title, content || step.fallbackText),
-      kind: "application-guidance",
-      guidanceType: step.guidanceType,
-      applicationId: applicationId
-    };
-  }
-
-  function hasApplicationGuidanceMessage(applicationId, guidanceType) {
-    const messages = state.aiChat && Array.isArray(state.aiChat.messages) ? state.aiChat.messages : [];
-    return messages.some(function hasMessage(message) {
-      return cleanString(message && message.kind) === "application-guidance" &&
-        cleanString(message && message.applicationId) === applicationId &&
-        cleanString(message && message.guidanceType) === guidanceType;
-    });
-  }
-
-  function hasAllApplicationGuidanceMessages(applicationId) {
-    return APPLICATION_GUIDANCE_STEPS.every(function hasStep(step) {
-      return hasApplicationGuidanceMessage(applicationId, step.guidanceType);
-    });
-  }
-
-  function removeApplicationGuidanceLoadingMessage(applicationId) {
-    if (!state.aiChat || !Array.isArray(state.aiChat.messages)) {
-      return;
-    }
-    state.aiChat.messages = state.aiChat.messages.filter(function keepMessage(message) {
-      return !(cleanString(message && message.kind) === "application-guidance-loading" &&
-        cleanString(message && message.applicationId) === applicationId);
-    });
-  }
-
-  function showApplicationGuidanceLoadingMessage(applicationId, text) {
-    removeApplicationGuidanceLoadingMessage(applicationId);
-    state.aiChat.messages.push({
-      role: "assistant",
-      text: cleanString(text) || "Sending resume guidance...",
-      kind: "application-guidance-loading",
-      applicationId: applicationId
-    });
-    renderAiChatMessages();
-  }
-
-  function hasApplicationJobContent(application) {
-    const app = application && typeof application === "object" ? application : {};
-    return Boolean(cleanString(app.jobDescriptionText) || cleanString(app.descriptionText) || cleanString(app.description) ||
-      cleanString(app.rawText) || cleanString(app.pageText) || cleanString(app.pageTitle));
-  }
-
-  function findJobForApplication(application) {
-    const app = application && typeof application === "object" ? application : {};
-    const appJobId = cleanString(app.jobId);
-    const appUrl = cleanString(app.jobUrl || app.url);
-    const jobs = getCanonicalJobs();
-    return jobs.find(function matchJob(job) {
-      const safeJob = job && typeof job === "object" ? job : {};
-      return (appJobId && cleanString(safeJob.jobId || safeJob.id) === appJobId) ||
-        (appUrl && cleanString(safeJob.jobUrl || safeJob.url) === appUrl);
-    }) || null;
-  }
-
-  function buildGuidanceApplicationContext(application) {
-    const app = application && typeof application === "object" ? application : {};
-    const job = findJobForApplication(app) || {};
-    return {
-      ...job,
-      ...app,
-      company: cleanString(app.company) || cleanString(job.company),
-      jobTitle: cleanString(app.jobTitle || app.role || app.title) || cleanString(job.jobTitle || job.role || job.title),
-      location: cleanString(app.location) || cleanString(job.location),
-      jobUrl: cleanString(app.jobUrl || app.url) || cleanString(job.jobUrl || job.url),
-      pageTitle: cleanString(app.pageTitle) || cleanString(job.pageTitle),
-      jobDescriptionText: cleanString(app.jobDescriptionText || app.descriptionText || app.description || app.rawText) ||
-        cleanString(job.jobDescriptionText || job.descriptionText || job.description || job.rawText),
-      pageText: cleanString(app.pageText) || cleanString(job.pageText)
-    };
-  }
-
-  function normalizeGuidanceListValue(text) {
-    return cleanString(text).split(/\n+/).map(function mapLine(line) {
-      return cleanString(line).replace(/^[-*•]\s*/, "");
-    }).filter(Boolean);
-  }
-
-  async function getMergedAiSettings() {
-    const canonicalData = await getCanonicalDataForMutation();
-    const storageSettings = storage && typeof storage.getSettings === "function" ? await storage.getSettings() : {};
-    return {
-      ...(canonicalData && canonicalData.settings && typeof canonicalData.settings === "object" ? canonicalData.settings : {}),
-      ...(storageSettings && typeof storageSettings === "object" ? storageSettings : {})
-    };
-  }
-
-  async function patchApplicationGuidanceField(step, content) {
-    const canonical = await getCanonicalDataForMutation();
-    const applications = Array.isArray(canonical.applications) ? canonical.applications.slice() : [];
-    const targetId = cleanString(state.applicationResumeEditor && state.applicationResumeEditor.applicationId);
-    const targetIndex = applications.findIndex((item) => cleanString(item && (item.applicationId || item.id)) === targetId);
-    if (targetIndex < 0) {
-      return;
-    }
-    const current = applications[targetIndex] && typeof applications[targetIndex] === "object" ? applications[targetIndex] : {};
-    const currentGuidance = current.resumeGuidance && typeof current.resumeGuidance === "object" ? current.resumeGuidance : {};
-    const nextValue = step.field === "jobSummary" ? cleanString(content) : normalizeGuidanceListValue(content);
-    const guidance = {
-      ...currentGuidance,
-      id: cleanString(currentGuidance.id) || "guidance_" + Date.now(),
-      generatedAt: cleanString(currentGuidance.generatedAt) || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      source: cleanString(currentGuidance.source) || "ai_job_resume_guidance",
-      [step.field]: nextValue
-    };
-    applications[targetIndex] = {
-      ...current,
-      resumeGuidance: guidance,
-      updatedAt: new Date().toISOString()
-    };
-    await saveCanonicalDataPatch({ applications: applications });
-    if (state.applicationResumeEditor) {
-      state.applicationResumeEditor.application = applications[targetIndex];
-    }
-  }
-
-  async function resolveApplicationGuidanceContent(application, step) {
-    const currentResume = getCurrentApplicationResumeForGuidance();
-    const currentResumeHasContent = hasResumeContentForGuidance(currentResume);
-    const existing = getApplicationGuidanceValue(application, step);
-    if (existing && !(step.guidanceType === "revision-suggestions" && isStaleNoResumeSuggestions(existing))) {
-      return existing;
-    }
-
-    const appContext = buildGuidanceApplicationContext(application);
-    if (!hasApplicationJobContent(appContext) || !api || typeof api.generateJobGuidanceItem !== "function") {
-      return getGuidanceFallbackContent(step, currentResumeHasContent);
-    }
-
+  async function refreshTrackerData() {
+    state.notesPage.loading = true;
+    renderTrackerNotesPage();
     try {
-      const result = await api.generateJobGuidanceItem({
-        application: appContext,
-        guidanceType: step.guidanceType,
-        jobSummary: getApplicationGuidanceValue(appContext, APPLICATION_GUIDANCE_STEPS[0]),
-        keySkills: getApplicationGuidanceValue(appContext, APPLICATION_GUIDANCE_STEPS[1]),
-        resumeDraft: {
-          activeResumeLanguage: getResumeLanguage(),
-          resumes: {
-            [getResumeLanguage()]: currentResume
-          }
-        },
-        resumeSummary: getApplicationResumeSummaryForGuidance(currentResume),
-        resumeHasContent: currentResumeHasContent,
-        activeResumeLanguage: getResumeLanguage(),
-        settings: await getMergedAiSettings()
-      });
-      if (!result || result.ok !== true) {
-        return getGuidanceFallbackContent(step, currentResumeHasContent);
+      const [jobs, statuses, summary] = await Promise.all([
+        tracker.getJobs(), tracker.getStatuses(), tracker.getSummary()
+      ]);
+      state.notesPage.jobs = jobs;
+      state.notesPage.statuses = statuses;
+      state.trackerSummary = summary;
+      if (!jobs.some(job => job.id === state.notesPage.selectedJobId)) {
+        state.notesPage.selectedJobId = jobs.length ? jobs[0].id : "";
       }
-      const content = cleanString(result.content);
-      if (content) {
-        await patchApplicationGuidanceField(step, content);
-        return content;
+      if (state.notesPage.selectedJobId) {
+        await loadTrackerNotes(state.notesPage.selectedJobId);
+      } else {
+        state.notesPage.loadedJobId = "";
+        state.notesPage.notes = "";
+        if (trackerNotesEditorEl) trackerNotesEditorEl.value = "";
       }
-    } catch {
-      // Use the step fallback if the provider request or persistence fails.
-    }
-    return getGuidanceFallbackContent(step, currentResumeHasContent);
-  }
-
-  function waitForGuidancePaint() {
-    return new Promise(function(resolve) {
-      setTimeout(resolve, 0);
-    });
-  }
-
-  function isCurrentApplicationGuidanceSeed(applicationId, contextKey, runId) {
-    const activeApplicationId = cleanString(state.applicationResumeEditor && state.applicationResumeEditor.applicationId);
-    return Boolean(state.aiChat && state.aiChat.contextKey === contextKey &&
-      state.aiChat.applicationGuidanceSeed && state.aiChat.applicationGuidanceSeed.runId === runId &&
-      activeApplicationId === applicationId);
-  }
-
-  async function seedApplicationGuidanceChat(application, contextKey, runId) {
-    const app = application && typeof application === "object" ? application : {};
-    const applicationId = cleanString(app.applicationId || app.id);
-    if (!applicationId) {
-      return;
-    }
-
-    for (let index = 0; index < APPLICATION_GUIDANCE_STEPS.length; index += 1) {
-      const step = APPLICATION_GUIDANCE_STEPS[index];
-      if (!isCurrentApplicationGuidanceSeed(applicationId, contextKey, runId)) {
-        return;
-      }
-      if (hasApplicationGuidanceMessage(applicationId, step.guidanceType)) {
-        continue;
-      }
-
-      showApplicationGuidanceLoadingMessage(applicationId, step.loadingText);
-      await waitForGuidancePaint();
-      const content = await resolveApplicationGuidanceContent(
-        state.applicationResumeEditor && state.applicationResumeEditor.application
-          ? state.applicationResumeEditor.application
-          : app,
-        step
-      );
-
-      if (!isCurrentApplicationGuidanceSeed(applicationId, contextKey, runId)) {
-        return;
-      }
-      removeApplicationGuidanceLoadingMessage(applicationId);
-      state.aiChat.messages.push(buildApplicationGuidanceMessage(applicationId, step, content));
-      renderAiChatMessages();
-      await waitForGuidancePaint();
-    }
-
-    if (isCurrentApplicationGuidanceSeed(applicationId, contextKey, runId)) {
-      removeApplicationGuidanceLoadingMessage(applicationId);
-      state.aiChat.applicationGuidanceSeed.running = false;
-      state.aiChat.applicationGuidanceSeed.completed = true;
-      renderAiChatMessages();
+    } catch (error) {
+      state.trackerSummary = null;
+      setTrackerStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      state.notesPage.loading = false;
+      renderDashboard();
+      renderTrackerNotesPage();
     }
   }
 
-  function startApplicationGuidanceSeeding(application) {
-    const app = application && typeof application === "object" ? application : {};
-    const applicationId = cleanString(app.applicationId || app.id);
-    if (!applicationId || !state.aiChat || state.aiChat.contextKey !== "application:" + applicationId) {
-      return;
-    }
-    if (state.editorMode !== "ai" || hasAllApplicationGuidanceMessages(applicationId)) {
-      return;
-    }
-    const currentSeed = state.aiChat.applicationGuidanceSeed || {};
-    if (currentSeed.running && cleanString(currentSeed.applicationId) === applicationId) {
-      return;
-    }
-    const runId = createId("application_guidance_seed");
-    state.aiChat.applicationGuidanceSeed = {
-      applicationId: applicationId,
-      runId: runId,
-      running: true,
-      completed: false
-    };
-    void seedApplicationGuidanceChat(app, state.aiChat.contextKey, runId).catch(function handleSeedError() {
-      if (state.aiChat && state.aiChat.contextKey === "application:" + applicationId) {
-        const currentResume = getCurrentApplicationResumeForGuidance();
-        const currentResumeHasContent = hasResumeContentForGuidance(currentResume);
-        removeApplicationGuidanceLoadingMessage(applicationId);
-        APPLICATION_GUIDANCE_STEPS.forEach(function appendMissing(step) {
-          if (!hasApplicationGuidanceMessage(applicationId, step.guidanceType)) {
-            state.aiChat.messages.push(buildApplicationGuidanceMessage(applicationId, step, getGuidanceFallbackContent(step, currentResumeHasContent)));
-          }
-        });
-        state.aiChat.applicationGuidanceSeed.running = false;
-        renderAiChatMessages();
-      }
-    });
+  async function saveTrackerNotes() {
+    const jobId = state.notesPage.selectedJobId;
+    if (!jobId || state.notesPage.loadedJobId !== jobId) return;
+    const text = trackerNotesEditorEl ? trackerNotesEditorEl.value : state.notesPage.notes;
+    const saved = await tracker.saveNotes(jobId, text);
+    if (state.notesPage.selectedJobId === jobId) state.notesPage.notes = saved.notes;
+    setTrackerStatus("Notes saved in Tracker.");
   }
 
-  function ensureResumeAiChatContext(appMode, application) {
-    const app = application && typeof application === "object" ? application : {};
-    const appId = cleanString(app.applicationId || app.id);
-    const contextKey = appMode ? "application:" + appId : "profile";
-    if (state.aiChat && state.aiChat.contextKey === contextKey) {
-      if (!Array.isArray(state.aiChat.messages) || state.aiChat.messages.length === 0) {
-        state.aiChat.messages = appMode ? [] : buildProfileResumeAiMessages();
-      }
-      if (appMode) startApplicationGuidanceSeeding(app);
-      return;
-    }
-    state.aiChat = {
-      messages: appMode ? [] : buildProfileResumeAiMessages(),
-      isThinking: false,
-      contextKey: contextKey,
-      applicationGuidanceSeed: appMode ? { applicationId: appId, running: false, completed: false, runId: "" } : null
-    };
-    if (appMode) startApplicationGuidanceSeeding(app);
-  }
-
-  function buildNotesAiContext() {
-    const allNotes = getAllApplicationNotes();
-    const selected = allNotes.slice(0, 50);
+  async function buildNotesAiContext() {
+    const jobs = await tracker.getJobs();
+    const files = await Promise.all(jobs.map(job => tracker.getNotes(job.id)));
+    const notes = jobs.map((job, index) => ({ job, text: files[index].notes })).filter(item => cleanString(item.text));
+    const selected = notes.slice(0, 50);
     return {
-      contextVersion: 1,
-      notesIncluded: selected.length,
-      totalNotes: allNotes.length,
-      truncated: allNotes.length > selected.length,
-      onlineResearchAvailable: false,
-      onlineResearchContext: "",
-      resumePdfContextAvailable: false,
-      resumePdfContext: "",
-      applications: selected.map(function mapNote(note) {
-        return {
-          applicationId: note.applicationId,
-          company: note.company,
-          jobTitle: note.jobTitle,
-          status: note.status,
-          location: note.location,
-          savedDate: note.savedDate,
-          appliedDate: note.appliedDate,
-          note: {
-            noteId: note.noteId,
-            date: note.noteDate,
-            title: note.noteTitle,
-            updatedAt: note.updatedAt,
-            contentMarkdown: truncateNotesText(note.contentMarkdown, 1300)
-          }
-        };
-      })
+      contextVersion: 1, totalNotes: notes.length, notesIncluded: selected.length,
+      truncated: notes.length > selected.length, onlineResearchAvailable: false,
+      onlineResearchContext: "", resumePdfContextAvailable: false, resumePdfContext: "",
+      applications: selected.map(({ job, text }) => ({
+        applicationId: job.id, company: job.company, jobTitle: job.job_title,
+        status: trackerStatusLabel(job), location: job.location,
+        appliedDate: job.applied_date,
+        note: { title: `${job.company} — ${job.job_title}`, contentMarkdown: truncateNotesText(text, 1300) }
+      }))
     };
   }
 
-  async function appendNotesAiMessage(role, text) {
-    if (!state.notesPage) return;
-    const message = normalizeNotesAiMessage({
-      id: createId("notes_ai_msg"),
-      role: role,
-      content: cleanString(text),
-      createdAt: new Date().toISOString()
-    });
-    if (!message) {
-      return;
-    }
-    state.notesPage.aiMessages.push(message);
-    await persistNotesAiMessages();
-    renderNotesAiMessages();
+  function appendNotesAiMessage(role, content) {
+    state.notesPage.aiMessages.push({ role, content });
+    renderTrackerNotesPage();
   }
 
   async function handleNotesAiSend() {
-    if (!notesAiInputEl) return;
-    const userMessage = cleanString(notesAiInputEl.value);
-    if (!userMessage) return;
-
+    const userMessage = cleanString(notesAiInputEl && notesAiInputEl.value);
+    if (!userMessage || state.notesPage.isThinking) return;
     if (!hasAiProvider()) {
-      await appendNotesAiMessage("assistant", "AI Notes Assistant is unavailable because no model provider is configured.");
+      appendNotesAiMessage("assistant", "AI Notes Assistant is unavailable because no model provider is configured.");
       return;
     }
-
-    if (!api || typeof api.answerApplicationNotesQuestion !== "function") {
-      await appendNotesAiMessage("assistant", "Failed to answer based on notes. Please try again.");
-      return;
-    }
-
-    const context = buildNotesAiContext();
-    if (!context.totalNotes) {
-      await appendNotesAiMessage("assistant", "No notes are available yet. Add notes from an application first.");
-      return;
-    }
-
     const chatHistory = buildVisibleChatHistory(state.notesPage.aiMessages);
-    notesAiInputEl.value = "";
-    await appendNotesAiMessage("user", userMessage);
     state.notesPage.isThinking = true;
-    renderGlobalNotesPage();
-
+    renderTrackerNotesPage();
     try {
-      const result = await api.answerApplicationNotesQuestion({
-        userMessage: userMessage,
-        notesContext: context,
-        chatHistory: chatHistory,
-        settings: getAiSettings()
-      });
-      state.notesPage.isThinking = false;
-      if (!result || result.ok !== true) {
-        await appendNotesAiMessage("assistant", "Failed to answer based on notes. Please try again.");
+      const context = await buildNotesAiContext();
+      if (!context.totalNotes) {
+        appendNotesAiMessage("assistant", "No Tracker notes are available yet. Save a note first.");
         return;
       }
-      await appendNotesAiMessage("assistant", cleanString(result.answer) || "I do not see enough local notes to answer that confidently.");
-    } catch {
-      state.notesPage.isThinking = false;
-      await appendNotesAiMessage("assistant", "Failed to answer based on notes. Please try again.");
-    } finally {
-      renderGlobalNotesPage();
-    }
-  }
-
-  function getNotesAiMessagesForExport() {
-    return state.notesPage && Array.isArray(state.notesPage.aiMessages)
-      ? state.notesPage.aiMessages.map(normalizeNotesAiMessage).filter(Boolean)
-      : [];
-  }
-
-  async function handleNotesAiClear() {
-    const messages = getNotesAiMessagesForExport();
-    if (!messages.length) {
-      return;
-    }
-    const confirmed = typeof globalThis.confirm === "function"
-      ? globalThis.confirm("Clear AI Notes Assistant chat history? This will not delete application notes or exported notes.")
-      : true;
-    if (!confirmed) {
-      return;
-    }
-    state.notesPage.aiMessages = [];
-    await removeChromeLocalValue(NOTES_AI_CHAT_STORAGE_KEY);
-    renderGlobalNotesPage();
-    setStatus("AI Notes Assistant chat history cleared.");
-  }
-
-  function buildNotesAiExportOptions() {
-    return buildApplicationRows().filter(function(row) {
-      return Boolean(cleanString(row && row.applicationId));
-    });
-  }
-
-  function renderNotesAiExportModal() {
-    const rows = buildNotesAiExportOptions();
-    const hasRows = rows.length > 0;
-    const exporting = Boolean(state.notesAiExport && state.notesAiExport.isExporting);
-    if (notesAiExportApplicationSelectEl) {
-      const currentValue = cleanString(notesAiExportApplicationSelectEl.value);
-      notesAiExportApplicationSelectEl.innerHTML = "";
-      rows.forEach(function(row) {
-        const option = document.createElement("option");
-        option.value = cleanString(row.applicationId);
-        option.textContent = [
-          cleanString(row.company) || "Unknown Company",
-          cleanString(row.jobTitle) || "Unknown Role",
-          cleanString(row.status)
-        ].filter(Boolean).join(" - ");
-        notesAiExportApplicationSelectEl.appendChild(option);
+      if (notesAiInputEl) notesAiInputEl.value = "";
+      appendNotesAiMessage("user", userMessage);
+      const result = await api.answerApplicationNotesQuestion({
+        userMessage, notesContext: context, chatHistory, settings: getAiSettings()
       });
-      if (currentValue && rows.some(function(row) { return cleanString(row.applicationId) === currentValue; })) {
-        notesAiExportApplicationSelectEl.value = currentValue;
-      }
-      notesAiExportApplicationSelectEl.disabled = !hasRows || exporting;
-    }
-    if (notesAiExportEmptyMsgEl) {
-      notesAiExportEmptyMsgEl.classList.toggle("hidden", hasRows);
-    }
-    if (notesAiExportTimeInputEl) {
-      notesAiExportTimeInputEl.disabled = exporting;
-    }
-    if (notesAiExportNameInputEl) {
-      notesAiExportNameInputEl.disabled = exporting;
-    }
-    if (notesAiExportSubmitBtn) {
-      notesAiExportSubmitBtn.disabled = !hasRows || exporting || getNotesAiMessagesForExport().length === 0;
-      notesAiExportSubmitBtn.textContent = exporting ? "Exporting..." : "Export Note";
-    }
-  }
-
-  function openNotesAiExportModal() {
-    const messages = getNotesAiMessagesForExport();
-    if (!messages.length) {
-      setStatus("No AI Notes Assistant messages to export.");
-      return;
-    }
-    state.notesAiExport.open = true;
-    state.notesAiExport.isExporting = false;
-    if (notesAiExportTimeInputEl) {
-      notesAiExportTimeInputEl.value = todayDateString();
-    }
-    if (notesAiExportNameInputEl) {
-      notesAiExportNameInputEl.value = NOTES_AI_EXPORT_DEFAULT_TITLE;
-    }
-    if (notesAiExportValidationMsgEl) {
-      notesAiExportValidationMsgEl.textContent = "";
-    }
-    if (notesAiExportModalOverlayEl) {
-      notesAiExportModalOverlayEl.classList.remove("hidden");
-    }
-    renderNotesAiExportModal();
-  }
-
-  function closeNotesAiExportModal() {
-    state.notesAiExport.open = false;
-    state.notesAiExport.isExporting = false;
-    if (notesAiExportModalOverlayEl) {
-      notesAiExportModalOverlayEl.classList.add("hidden");
-    }
-    if (notesAiExportValidationMsgEl) {
-      notesAiExportValidationMsgEl.textContent = "";
-    }
-  }
-
-  function formatNotesAiMessageTimestamp(value) {
-    const text = cleanString(value);
-    if (!text) {
-      return "";
-    }
-    const date = new Date(text);
-    if (Number.isNaN(date.getTime())) {
-      return text;
-    }
-    return date.toLocaleString();
-  }
-
-  function formatNotesAiOriginalConversation(messages) {
-    const list = Array.isArray(messages) ? messages : [];
-    if (!list.length) {
-      return "(No AI Note Assistant messages were available.)";
-    }
-    return list.map(function(message) {
-      const role = cleanString(message.role) === "user" ? "User" : "Assistant";
-      const timestamp = formatNotesAiMessageTimestamp(message.createdAt);
-      const label = timestamp ? role + " (" + timestamp + ")" : role;
-      return label + ":\n" + cleanString(message.content);
-    }).join("\n\n");
-  }
-
-  async function generateNotesAiExportSummary(messages) {
-    if (!hasAiProvider() || !api || typeof api.summarizeApplicationNotesConversation !== "function") {
-      return NOTES_AI_EXPORT_FALLBACK_SUMMARY;
-    }
-    try {
-      const result = await api.summarizeApplicationNotesConversation({
-        messages: messages,
-        settings: getAiSettings()
-      });
-      if (result && result.ok === true && cleanString(result.summary)) {
-        return cleanString(result.summary);
-      }
-    } catch {
-      // Keep the local summary when provider summarization fails.
-    }
-    return NOTES_AI_EXPORT_FALLBACK_SUMMARY;
-  }
-
-  function buildNotesAiExportContent(summary, messages) {
-    return [
-      "## AI Summary",
-      "",
-      cleanString(summary) || NOTES_AI_EXPORT_FALLBACK_SUMMARY,
-      "",
-      "## Original Conversation",
-      "",
-      formatNotesAiOriginalConversation(messages)
-    ].join("\n");
-  }
-
-  async function handleNotesAiExportSubmit() {
-    const messages = getNotesAiMessagesForExport();
-    const noteDate = cleanString(notesAiExportTimeInputEl && notesAiExportTimeInputEl.value);
-    const noteTitle = cleanString(notesAiExportNameInputEl && notesAiExportNameInputEl.value);
-    const applicationId = cleanString(notesAiExportApplicationSelectEl && notesAiExportApplicationSelectEl.value);
-    const errors = [];
-    if (!messages.length) errors.push("No AI Notes Assistant messages are available to export.");
-    if (!noteDate) errors.push("Note Time is required.");
-    if (!noteTitle) errors.push("Note Name is required.");
-    if (!applicationId) errors.push("Target Application / Job is required.");
-    if (errors.length) {
-      if (notesAiExportValidationMsgEl) {
-        notesAiExportValidationMsgEl.textContent = errors.join(" ");
-      }
-      return;
-    }
-
-    state.notesAiExport.isExporting = true;
-    renderNotesAiExportModal();
-    try {
-      const canonical = await getCanonicalDataForMutation();
-      const applications = Array.isArray(canonical.applications) ? canonical.applications : [];
-      const app = applications.find(function(item) {
-        return cleanString(item && (item.applicationId || item.id)) === applicationId;
-      });
-      if (!app) {
-        throw new Error("Target application was not found.");
-      }
-      const summary = await generateNotesAiExportSummary(messages);
-      const now = new Date().toISOString();
-      const notes = normalizeNotes(app.notes);
-      notes.push({
-        id: generateNoteId(),
-        date: noteDate,
-        title: noteTitle,
-        contentMarkdown: buildNotesAiExportContent(summary, messages),
-        createdAt: now,
-        updatedAt: now
-      });
-      await patchApplicationNotes(applicationId, notes);
-      closeNotesAiExportModal();
-      setStatus("AI Notes Assistant conversation exported to Application Notes.");
+      appendNotesAiMessage("assistant", result && result.ok === true
+        ? cleanString(result.answer) || "The saved notes do not contain enough information."
+        : cleanString(result && result.error) || "Failed to answer based on notes.");
     } catch (error) {
-      state.notesAiExport.isExporting = false;
-      renderNotesAiExportModal();
-      if (notesAiExportValidationMsgEl) {
-        notesAiExportValidationMsgEl.textContent = error instanceof Error ? error.message : String(error);
-      }
+      setTrackerStatus(error instanceof Error ? error.message : String(error));
+    } finally {
+      state.notesPage.isThinking = false;
+      renderTrackerNotesPage();
     }
   }
 
-  function openApplicationFromGlobalNotes(applicationId) {
-    if (cleanString(applicationId)) void openTrackerDashboard();
+  function handleNotesAiClear() {
+    state.notesPage.aiMessages = [];
+    renderTrackerNotesPage();
   }
 
-  function handleGlobalNotesClick(event) {
-    const target = event.target instanceof HTMLElement ? event.target.closest("[data-action]") : null;
-    if (!(target instanceof HTMLElement)) return;
-    const action = cleanString(target.getAttribute("data-action"));
-    const applicationId = cleanString(target.getAttribute("data-application-id"));
-    if (!applicationId) return;
-
-    if (action === "global-open-application") {
-      openApplicationFromGlobalNotes(applicationId);
-      return;
+  async function saveLatestNotesAiReply() {
+    const message = state.notesPage.aiMessages.slice().reverse().find(item => item.role === "assistant");
+    if (!message || !state.notesPage.selectedJobId || state.notesPage.loadedJobId !== state.notesPage.selectedJobId) return;
+    const text = trackerNotesEditorEl ? trackerNotesEditorEl.value : state.notesPage.notes;
+    const combined = `${text.trimEnd()}\n\n## AI Notes Assistant\n\n${message.content}`.trimStart();
+    const jobId = state.notesPage.selectedJobId;
+    const saved = await tracker.saveNotes(jobId, combined);
+    if (state.notesPage.selectedJobId === jobId && state.notesPage.loadedJobId === jobId) {
+      state.notesPage.notes = saved.notes;
+      if (trackerNotesEditorEl) trackerNotesEditorEl.value = saved.notes;
     }
-
-    if (action === "global-edit-note") {
-      const noteId = cleanString(target.getAttribute("data-note-id"));
-      void openNotesModal(applicationId, noteId).catch(function(err) {
-        setStatus(err instanceof Error ? err.message : String(err));
-      });
-    }
-  }
-
-  function handleGlobalNotesFilterChange() {
-    if (!state.notesPage) return;
-    state.notesPage.searchQuery = cleanString(globalNotesSearchEl && globalNotesSearchEl.value);
-    state.notesPage.companyFilter = cleanString(globalNotesCompanyFilterEl && globalNotesCompanyFilterEl.value) || "all";
-    state.notesPage.statusFilter = cleanString(globalNotesStatusFilterEl && globalNotesStatusFilterEl.value) || "all";
-    renderGlobalNotesPage();
+    setTrackerStatus("AI reply saved to the selected job's Tracker notes.");
   }
 
   function getUploadResumeState() {
@@ -4320,15 +2938,13 @@
     }
   }
 
-  function resetUploadResumeState(context) {
+  function resetUploadResumeState() {
     releasePdfPreviewDoc();
     state.uploadResume = {
       open: true,
       running: false,
       completed: false,
       cancelled: false,
-      context: context === "application" ? "application" : "profile",
-      applicationId: context === "application" ? cleanString(state.applicationResumeEditor && state.applicationResumeEditor.applicationId) : "",
       step: "Choose a PDF resume to start importing.",
       error: "",
       log: [],
@@ -4361,9 +2977,7 @@
   }
 
   function openUploadResumeModal() {
-    const isAppMode = Boolean(state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft);
-    if (isAppMode) return;
-    resetUploadResumeState("profile");
+    resetUploadResumeState();
     if (uploadResumeFileInputEl) {
       uploadResumeFileInputEl.value = "";
     }
@@ -5498,7 +4112,7 @@
     return { ok: true, message: cleanString(result.reason) };
   }
 
-  async function persistUploadResumeExecution(execResult, lang, isAppMode) {
+  async function persistUploadResumeExecution(execResult, lang) {
     const uploadState = getUploadResumeState();
     if (cleanString(execResult && execResult.lastSectionId)) {
       uploadState.lastSectionId = cleanString(execResult.lastSectionId);
@@ -5506,7 +4120,7 @@
     if (cleanString(execResult && execResult.lastEntryId)) {
       uploadState.lastEntryId = cleanString(execResult.lastEntryId);
     }
-    applyAiExecutionResult(execResult, lang, isAppMode);
+    applyAiExecutionResult(execResult, lang);
     markResumeDirty({ cleanupEmptyObjects: true, language: lang, debounce: false });
     await flushResumeAutosave({
       force: true,
@@ -5561,7 +4175,7 @@
     });
   }
 
-  async function executeUploadResumeFunctionBatch(functionCalls, markdown, progress, settings, lang, isAppMode) {
+  async function executeUploadResumeFunctionBatch(functionCalls, markdown, progress, settings, lang) {
     const rfns = globalThis.ResumeAiFunctions;
     if (!rfns || typeof rfns.executeResumeFunctions !== "function" || typeof rfns.validateResumeFunctionBatch !== "function") {
       throw new Error("Resume function executor is unavailable.");
@@ -5602,7 +4216,7 @@
       throw new Error(cleanString(execResult && execResult.error) || "Failed to import resume content. Please try again.");
     }
 
-    await persistUploadResumeExecution(execResult, lang, isAppMode);
+    await persistUploadResumeExecution(execResult, lang);
     return {
       summary: summarizeFunctionBatch(resolvedFunctionCalls, execResult),
       changeSummary: Array.isArray(execResult.changeSummary) ? execResult.changeSummary : [],
@@ -5701,7 +4315,6 @@
     const uploadState = getUploadResumeState();
     const settings = getAiSettings();
     const lang = getResumeLanguage();
-    const isAppMode = false;
     if (!api || typeof api.planResumeImportStep !== "function") {
       throw new Error("Failed to import resume content. Please try again.");
     }
@@ -5863,7 +4476,7 @@
       let executed;
 
       while (true) {
-        executed = await executeUploadResumeFunctionBatch(batchToExecute, markdown, batchProgress, settings, lang, isAppMode);
+        executed = await executeUploadResumeFunctionBatch(batchToExecute, markdown, batchProgress, settings, lang);
 
         if (executed && executed.cancelled) break;
 
@@ -6075,13 +4688,7 @@
   async function startUploadResumeImport(file) {
     const uploadState = getUploadResumeState();
     if (!file) return;
-    if (uploadState.context === "application") {
-      const currentApplicationId = cleanString(state.applicationResumeEditor && state.applicationResumeEditor.applicationId);
-      if (!currentApplicationId || currentApplicationId !== cleanString(uploadState.applicationId)) {
-        setUploadResumeError("Failed to import resume content. Please try again.");
-        return;
-      }
-    }
+
     const isPdf = cleanString(file.type).toLowerCase() === "application/pdf" || /\.pdf$/i.test(cleanString(file.name));
     if (!isPdf) {
       setUploadResumeError("Please upload a PDF resume.");
@@ -6689,13 +5296,11 @@
   function renderAll() {
     renderDashboard();
     renderProfile();
-    renderGuidancePanel();
     applyUiLanguage(getResumeLanguage());
     renderResume();
     renderTestSandbox();
     renderAutofillAnswers();
-    renderApplications();
-    renderGlobalNotesPage();
+    renderTrackerNotesPage();
     renderSettings();
     setActiveTab(state.activeTab || "dashboard");
     schedulePreviewUpdate();
@@ -6716,8 +5321,6 @@
       : {
           profile: state.appData && state.appData.profile ? state.appData.profile : {},
           resume: state.appData && state.appData.masterResume ? state.appData.masterResume : {},
-          jobs: [],
-          applications: Array.isArray(state.appData && state.appData.applications) ? state.appData.applications : [],
           autofillAnswers: Array.isArray(state.appData && state.appData.autofillAnswers) ? state.appData.autofillAnswers : [],
           settings: settings
         };
@@ -6771,25 +5374,6 @@
     }
 
     const data = response.data && typeof response.data === "object" ? response.data : {};
-    const candidate = data.pendingApplicationRecord && typeof data.pendingApplicationRecord === "object"
-      ? data.pendingApplicationRecord
-      : data.applicationRecord && typeof data.applicationRecord === "object"
-        ? data.applicationRecord
-        : null;
-
-    if (candidate) {
-      await appDataStore.upsertApplication({
-        id: cleanString(candidate.applicationId),
-        company: cleanString(candidate.company),
-        role: cleanString(candidate.role || candidate.jobTitle),
-        status: cleanString(candidate.status) || "draft",
-        jobUrl: cleanString(candidate.jobUrl),
-        appliedAt: cleanString(candidate.appliedAt || candidate.createdAt) || new Date().toISOString(),
-        resumeId: cleanString(candidate.resumeId || candidate.resumeVersion || candidate.resumeVersionId),
-        notes: cleanString(candidate.notes)
-      });
-    }
-
     await refreshStateFromStorage();
     renderAll();
 
@@ -6802,40 +5386,12 @@
     }
   }
 
-  async function getCanonicalDataForMutation() {
-    if (dataBoundary && typeof dataBoundary.getAppData === "function") {
-      return await dataBoundary.getAppData();
-    }
-    return state.canonicalData || {
-      profile: {},
-      resume: {},
-      jobs: [],
-      applications: [],
-      autofillAnswers: [],
-      settings: {}
-    };
-  }
-
   async function saveCanonicalDataPatch(patch) {
     const safePatch = patch && typeof patch === "object" ? patch : {};
     if (dataBoundary && typeof dataBoundary.saveAppData === "function") {
       return await dataBoundary.saveAppData(safePatch);
     }
     return state.canonicalData;
-  }
-
-  function findApplicationRowById(applicationId) {
-    const target = cleanString(applicationId);
-    if (!target) {
-      return null;
-    }
-    const rows = buildApplicationRows();
-    for (let index = 0; index < rows.length; index += 1) {
-      if (cleanString(rows[index].applicationId) === target) {
-        return rows[index];
-      }
-    }
-    return null;
   }
 
   function bytesToBase64(bytes) {
@@ -6850,997 +5406,6 @@
     const text = String(value || "");
     const encoder = new TextEncoder();
     return bytesToBase64(encoder.encode(text));
-  }
-
-  async function updateApplicationStatus(applicationId, nextStatusInput) {
-    const targetId = cleanString(applicationId);
-    if (!targetId) {
-      return;
-    }
-
-    const nextStatus = APPLICATION_STATUSES.includes(cleanString(nextStatusInput)) ? cleanString(nextStatusInput) : "Saved";
-    const canonical = await getCanonicalDataForMutation();
-    const applications = Array.isArray(canonical.applications) ? canonical.applications.slice() : [];
-    const targetIndex = applications.findIndex((item) => cleanString(item && item.applicationId) === targetId);
-    if (targetIndex < 0) {
-      return;
-    }
-
-    const nowIso = new Date().toISOString();
-    const current = applications[targetIndex] && typeof applications[targetIndex] === "object" ? applications[targetIndex] : {};
-    const previousAppliedAt = cleanString(current.appliedAt);
-    const nextAppliedAt = nextStatus === "Applied" ? (previousAppliedAt || nowIso) : previousAppliedAt;
-
-    applications[targetIndex] = {
-      ...current,
-      status: nextStatus,
-      updatedAt: nowIso,
-      appliedAt: nextAppliedAt
-    };
-
-    await saveCanonicalDataPatch({ applications: applications });
-    await refreshStateFromStorage();
-    renderAll();
-    setStatus("Application status updated.");
-  }
-
-  async function openApplicationResumeEditor(applicationId) {
-    const targetId = cleanString(applicationId);
-    if (!targetId) {
-      throw new Error("Application id is missing.");
-    }
-    const canonical = await getCanonicalDataForMutation();
-    const applications = Array.isArray(canonical.applications) ? canonical.applications.slice() : [];
-    const targetIndex = applications.findIndex((item) => cleanString(item && (item.applicationId || item.id)) === targetId);
-    if (targetIndex < 0) {
-      throw new Error("Application record was not found.");
-    }
-    const app = applications[targetIndex] && typeof applications[targetIndex] === "object" ? applications[targetIndex] : {};
-    const draft = buildApplicationResumeDraft(app, "created_on_view_edit_resume_for_legacy_record", canonical);
-    if (!hasApplicationDraftDualResumeShape(app.resumeDraft)) {
-      applications[targetIndex] = {
-        ...app,
-        resumeDraftId: cleanString(draft.id),
-        resumeDraft: draft,
-        updatedAt: new Date().toISOString()
-      };
-      await saveCanonicalDataPatch({ applications: applications });
-      await refreshStateFromStorage();
-    }
-    state.applicationResumeEditor = {
-      applicationId: targetId,
-      application: applications[targetIndex],
-      resumeDraft: draft
-    };
-    state.editorMode = "ai";
-    state.aiChat = { messages: [], isThinking: false, contextKey: "" };
-    setActiveTab("profile-resume");
-    renderProfile();
-    applyUiLanguage(getResumeLanguage());
-    renderResume();
-    schedulePreviewUpdate();
-    setStatus("Editing application-specific resume.");
-
-    state.guidanceLoading = false;
-    state.guidanceError = "";
-    state.guidanceCollapsed = false;
-  }
-
-  async function deleteApplication(applicationId) {
-    const targetId = cleanString(applicationId);
-    if (!targetId) {
-      return;
-    }
-
-    const canonical = await getCanonicalDataForMutation();
-    const applications = Array.isArray(canonical.applications) ? canonical.applications.slice() : [];
-    const jobs = Array.isArray(canonical.jobs) ? canonical.jobs.slice() : [];
-    const targetIndex = applications.findIndex((item) => cleanString(item && item.applicationId) === targetId);
-    if (targetIndex < 0) {
-      return;
-    }
-
-    const target = applications[targetIndex] && typeof applications[targetIndex] === "object" ? applications[targetIndex] : {};
-    const targetJobId = cleanString(target.jobId);
-    applications.splice(targetIndex, 1);
-
-    let nextJobs = jobs;
-    if (targetJobId) {
-      const hasReference = applications.some((item) => cleanString(item && item.jobId) === targetJobId);
-      if (!hasReference) {
-        nextJobs = jobs.filter((item) => cleanString(item && item.jobId) !== targetJobId);
-      }
-    }
-
-    await saveCanonicalDataPatch({
-      applications: applications,
-      jobs: nextJobs
-    });
-    await refreshStateFromStorage();
-    renderAll();
-    setStatus("Application deleted.");
-  }
-
-  // ── Application Notes ──────────────────────────────────────────────────────
-
-  function getNm() {
-    return state.notesModal;
-  }
-
-  function normalizeNotes(raw) {
-    if (!Array.isArray(raw)) {
-      return [];
-    }
-    return raw.map(function normalizeNote(n) {
-      if (!n || typeof n !== "object") {
-        return null;
-      }
-      const id = cleanString(n.id) || ("note_" + String(Date.now()) + "_" + Math.random().toString(36).slice(2, 9));
-      const date = cleanString(n.date) || new Date().toISOString().slice(0, 10);
-      const title = cleanString(n.title) || "Untitled Note";
-      let content = cleanString(n.contentMarkdown || n.content || "");
-      const nextAction = cleanString(n.nextAction);
-      if (nextAction) {
-        content = content ? content + "\n\n## Next Action\n" + nextAction : "## Next Action\n" + nextAction;
-      }
-      return {
-        id: id,
-        date: date,
-        title: title,
-        contentMarkdown: content,
-        createdAt: cleanString(n.createdAt) || new Date().toISOString(),
-        updatedAt: cleanString(n.updatedAt) || new Date().toISOString()
-      };
-    }).filter(Boolean);
-  }
-
-  function sortNotesByDate(notes) {
-    return notes.slice().sort(function(a, b) {
-      const da = parseDateToMillis(b.date) - parseDateToMillis(a.date);
-      if (da !== 0) {
-        return da;
-      }
-      return parseDateToMillis(b.updatedAt || b.createdAt) - parseDateToMillis(a.updatedAt || a.createdAt);
-    });
-  }
-
-  function todayDateString() {
-    return new Date().toISOString().slice(0, 10);
-  }
-
-  function generateNoteId() {
-    return "note_" + String(Date.now()) + "_" + Math.random().toString(36).slice(2, 9);
-  }
-
-  function renderMarkdown(text) {
-    const src = String(text || "");
-    if (!src.trim()) {
-      return "";
-    }
-
-    function esc(s) {
-      return String(s)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-    }
-
-    function inline(s) {
-      let r = esc(s);
-      r = r.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
-      r = r.replace(/\*(.+?)\*/g, "<em>$1</em>");
-      r = r.replace(/`(.+?)`/g, "<code>$1</code>");
-      r = r.replace(/\[([^\]]*)\]\(([^)]*)\)/g, function(_, linkText, url) {
-        const safeUrl = url.replace(/"/g, "%22").replace(/'/g, "%27");
-        const safeText = linkText;
-        return "<a href=\"" + safeUrl + "\" target=\"_blank\" rel=\"noopener noreferrer\">" + safeText + "</a>";
-      });
-      return r;
-    }
-
-    const lines = src.split("\n");
-    const html = [];
-    let i = 0;
-
-    while (i < lines.length) {
-      const line = lines[i];
-
-      if (line.startsWith("```")) {
-        i += 1;
-        const codeLines = [];
-        while (i < lines.length && !lines[i].startsWith("```")) {
-          codeLines.push(esc(lines[i]));
-          i += 1;
-        }
-        i += 1;
-        html.push("<pre><code>" + codeLines.join("\n") + "</code></pre>");
-        continue;
-      }
-
-      if (/^### (.+)/.test(line)) {
-        html.push("<h3>" + inline(line.slice(4)) + "</h3>");
-        i += 1;
-        continue;
-      }
-      if (/^## (.+)/.test(line)) {
-        html.push("<h2>" + inline(line.slice(3)) + "</h2>");
-        i += 1;
-        continue;
-      }
-      if (/^# (.+)/.test(line)) {
-        html.push("<h1>" + inline(line.slice(2)) + "</h1>");
-        i += 1;
-        continue;
-      }
-
-      if (/^---+$/.test(line.trim())) {
-        html.push("<hr/>");
-        i += 1;
-        continue;
-      }
-
-      if (line.startsWith("> ")) {
-        const quoteLines = [];
-        while (i < lines.length && lines[i].startsWith("> ")) {
-          quoteLines.push(inline(lines[i].slice(2)));
-          i += 1;
-        }
-        html.push("<blockquote>" + quoteLines.join("<br/>") + "</blockquote>");
-        continue;
-      }
-
-      if (/^\|.+\|/.test(line)) {
-        const tableRows = [];
-        while (i < lines.length && /^\|.+\|/.test(lines[i])) {
-          tableRows.push(lines[i]);
-          i += 1;
-        }
-        if (tableRows.length >= 2 && /^\|\s*[-:]+\s*\|/.test(tableRows[1])) {
-          const header = tableRows[0].split("|").slice(1, -1);
-          const body = tableRows.slice(2);
-          html.push("<table>");
-          html.push("<thead><tr>");
-          header.forEach(function(cell) { html.push("<th>" + inline(cell.trim()) + "</th>"); });
-          html.push("</tr></thead><tbody>");
-          body.forEach(function(rowStr) {
-            const cells = rowStr.split("|").slice(1, -1);
-            html.push("<tr>");
-            cells.forEach(function(cell) { html.push("<td>" + inline(cell.trim()) + "</td>"); });
-            html.push("</tr>");
-          });
-          html.push("</tbody></table>");
-        } else {
-          tableRows.forEach(function(r) { html.push("<p>" + inline(r) + "</p>"); });
-        }
-        continue;
-      }
-
-      if (/^- /.test(line)) {
-        const listItems = [];
-        let hasChecklist = false;
-        while (i < lines.length && /^- /.test(lines[i])) {
-          const li = lines[i];
-          if (/^- \[[ xX]\] /.test(li)) {
-            hasChecklist = true;
-            const checked = /^- \[[xX]\] /.test(li);
-            listItems.push({ type: "check", checked: checked, content: li.slice(6) });
-          } else {
-            listItems.push({ type: "bullet", content: li.slice(2) });
-          }
-          i += 1;
-        }
-        if (hasChecklist) {
-          html.push("<ul class=\"md-checklist\">");
-          listItems.forEach(function(li) {
-            if (li.type === "check") {
-              html.push("<li class=\"md-checklist-item\"><input class=\"md-checklist-checkbox\" type=\"checkbox\" disabled" + (li.checked ? " checked" : "") + "/><span class=\"md-checklist-text\">" + inline(li.content) + "</span></li>");
-            } else {
-              html.push("<li class=\"md-checklist-item md-checklist-item-plain\"><span class=\"md-checklist-text\">" + inline(li.content) + "</span></li>");
-            }
-          });
-          html.push("</ul>");
-        } else {
-          html.push("<ul>");
-          listItems.forEach(function(li) { html.push("<li>" + inline(li.content) + "</li>"); });
-          html.push("</ul>");
-        }
-        continue;
-      }
-
-      if (/^\d+\. /.test(line)) {
-        const listItems = [];
-        while (i < lines.length && /^\d+\. /.test(lines[i])) {
-          listItems.push(lines[i].replace(/^\d+\. /, ""));
-          i += 1;
-        }
-        html.push("<ol>");
-        listItems.forEach(function(li) { html.push("<li>" + inline(li) + "</li>"); });
-        html.push("</ol>");
-        continue;
-      }
-
-      if (line.trim() === "") {
-        i += 1;
-        continue;
-      }
-
-      const paraLines = [];
-      while (
-        i < lines.length &&
-        lines[i].trim() !== "" &&
-        !/^[#>]/.test(lines[i]) &&
-        !/^---+$/.test(lines[i].trim()) &&
-        !/^\d+\. /.test(lines[i]) &&
-        !/^- /.test(lines[i]) &&
-        !/^\|.+\|/.test(lines[i]) &&
-        !lines[i].startsWith("```")
-      ) {
-        paraLines.push(inline(lines[i]));
-        i += 1;
-      }
-      if (paraLines.length) {
-        html.push("<p>" + paraLines.join("<br/>") + "</p>");
-      }
-    }
-
-    return html.join("\n");
-  }
-
-  function escapeNoteSource(value) {
-    return String(value === undefined || value === null ? "" : value)
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
-
-  function applyMarkdownInsertToTextarea(textarea, action) {
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const selected = textarea.value.slice(start, end);
-    const before = textarea.value.slice(0, start);
-    const after = textarea.value.slice(end);
-
-    const blockActions = new Set(["h1", "h2", "h3", "bullet", "numbered", "checklist", "quote", "codeblock", "divider", "table"]);
-    const needsNewline = blockActions.has(action) && before.length > 0 && !before.endsWith("\n");
-    const prefix = needsNewline ? "\n" : "";
-
-    let insert;
-    let cursorFromInsertStart;
-
-    switch (action) {
-      case "h1":
-        insert = "# " + (selected || "Heading 1");
-        cursorFromInsertStart = insert.length;
-        break;
-      case "h2":
-        insert = "## " + (selected || "Heading 2");
-        cursorFromInsertStart = insert.length;
-        break;
-      case "h3":
-        insert = "### " + (selected || "Heading 3");
-        cursorFromInsertStart = insert.length;
-        break;
-      case "bold":
-        insert = selected ? "**" + selected + "**" : "**bold**";
-        cursorFromInsertStart = selected ? insert.length : 2;
-        break;
-      case "italic":
-        insert = selected ? "*" + selected + "*" : "*italic*";
-        cursorFromInsertStart = selected ? insert.length : 1;
-        break;
-      case "code":
-        insert = selected ? "`" + selected + "`" : "`code`";
-        cursorFromInsertStart = selected ? insert.length : 1;
-        break;
-      case "bullet":
-        insert = "- " + (selected || "Item");
-        cursorFromInsertStart = insert.length;
-        break;
-      case "numbered":
-        insert = "1. " + (selected || "Item");
-        cursorFromInsertStart = insert.length;
-        break;
-      case "checklist":
-        insert = "- [ ] " + (selected || "Task");
-        cursorFromInsertStart = insert.length;
-        break;
-      case "quote":
-        insert = "> " + (selected || "Quote");
-        cursorFromInsertStart = insert.length;
-        break;
-      case "codeblock":
-        insert = "```\n" + (selected || "code") + "\n```";
-        cursorFromInsertStart = insert.length;
-        break;
-      case "divider":
-        insert = "---";
-        cursorFromInsertStart = 3;
-        break;
-      case "link":
-        insert = selected ? "[" + selected + "](url)" : "[text](url)";
-        cursorFromInsertStart = selected ? insert.length - 1 : 6;
-        break;
-      case "table":
-        insert = "| Column 1 | Column 2 |\n| --- | --- |\n| Value 1 | Value 2 |";
-        cursorFromInsertStart = insert.length;
-        break;
-      default:
-        return;
-    }
-
-    textarea.value = before + prefix + insert + after;
-    const newCursor = start + prefix.length + cursorFromInsertStart;
-    textarea.selectionStart = newCursor;
-    textarea.selectionEnd = newCursor;
-    textarea.focus();
-
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-  }
-
-  function insertMarkdownSyntax(action) {
-    const nm = getNm();
-    if (!nm.draft) {
-      return;
-    }
-    syncNoteTextareaToDraft();
-    const switchedFromPreview = nm.mode !== "write";
-    if (nm.mode !== "write") {
-      nm.mode = "write";
-      renderNoteEditor();
-    }
-    const textarea = document.getElementById("note-content-input");
-    if (textarea instanceof HTMLTextAreaElement) {
-      if (switchedFromPreview) {
-        textarea.selectionStart = textarea.value.length;
-        textarea.selectionEnd = textarea.value.length;
-      }
-      applyMarkdownInsertToTextarea(textarea, action);
-      nm.draft.contentMarkdown = textarea.value;
-    }
-  }
-
-  function renderNotesList() {
-    const nm = getNm();
-    const listEl = document.getElementById("notes-list-items");
-    if (!listEl) {
-      return;
-    }
-
-    let notes = sortNotesByDate(nm.notes);
-    const query = cleanString(nm.searchQuery).toLowerCase();
-    if (query) {
-      notes = notes.filter(function(n) {
-        return (
-          (n.title || "").toLowerCase().includes(query) ||
-          (n.contentMarkdown || "").toLowerCase().includes(query)
-        );
-      });
-    }
-
-    listEl.innerHTML = "";
-
-    if (nm.notes.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "notes-list-empty";
-      empty.innerHTML = "<p>No notes yet.</p><p>Create your first note for this application.</p>";
-      listEl.appendChild(empty);
-      return;
-    }
-
-    if (notes.length === 0) {
-      const empty = document.createElement("div");
-      empty.className = "notes-list-empty";
-      empty.textContent = "No notes match your search.";
-      listEl.appendChild(empty);
-      return;
-    }
-
-    notes.forEach(function(note) {
-      const item = document.createElement("div");
-      item.className = "notes-list-item" + (note.id === nm.selectedNoteId ? " is-selected" : "");
-      item.dataset.noteId = note.id;
-      item.dataset.action = "select-note";
-
-      const dateEl = document.createElement("div");
-      dateEl.className = "notes-list-item-date";
-      dateEl.textContent = note.date || "";
-
-      const titleEl = document.createElement("div");
-      titleEl.className = "notes-list-item-title";
-      titleEl.textContent = note.title || "Untitled Note";
-
-      item.appendChild(dateEl);
-      item.appendChild(titleEl);
-      listEl.appendChild(item);
-    });
-  }
-
-  function renderNoteEditor() {
-    const nm = getNm();
-    const contentEl = document.getElementById("notes-editor-content");
-    const deleteBtn = document.getElementById("notes-delete-btn");
-    const saveBtn = document.getElementById("notes-save-btn");
-    const writeBtn = document.getElementById("notes-mode-write-btn");
-    const previewBtn = document.getElementById("notes-mode-preview-btn");
-
-    if (!contentEl) {
-      return;
-    }
-
-    if (deleteBtn) {
-      deleteBtn.disabled = !nm.selectedNoteId || nm.isNewDraft;
-    }
-    if (saveBtn) {
-      saveBtn.disabled = !nm.draft;
-    }
-    if (writeBtn) {
-      writeBtn.disabled = !nm.draft;
-      writeBtn.classList.toggle("is-active", nm.mode !== "preview");
-    }
-    if (previewBtn) {
-      previewBtn.disabled = !nm.draft;
-      previewBtn.classList.toggle("is-active", nm.mode === "preview");
-    }
-
-    if (!nm.draft) {
-      contentEl.innerHTML = "<div class=\"notes-editor-empty\"><p>No notes yet.</p><p>Create your first note for this application.</p></div>";
-      return;
-    }
-
-    const draft = nm.draft;
-    const dateVal = escapeHtml(cleanString(draft.date) || "");
-    const titleVal = escapeHtml(cleanString(draft.title) || "");
-    const contentVal = escapeNoteSource(String(draft.contentMarkdown || ""));
-    const isPreview = nm.mode === "preview";
-    const editorBody = isPreview
-      ? "<div id=\"note-preview-area\" class=\"notes-preview-area notes-rendered-block\">" + renderMarkdown(draft.contentMarkdown || "") + "</div>"
-      : "<textarea id=\"note-content-input\" class=\"notes-content-textarea\" placeholder=\"Write your notes in Markdown...\">" + contentVal + "</textarea>";
-
-    contentEl.innerHTML = `
-      <div class="notes-field-row">
-        <label class="notes-field-label">Date
-          <input id="note-date-input" type="date" class="notes-date-input" value="${dateVal}" />
-        </label>
-      </div>
-      <div class="notes-field-row">
-        <label class="notes-field-label">Title
-          <input id="note-title-input" type="text" class="notes-title-input" placeholder="Note title" value="${titleVal}" />
-        </label>
-      </div>
-      <div id="notes-validation-msg" class="notes-validation-msg"></div>
-      <div class="notes-toolbar">
-        <button type="button" class="notes-toolbar-btn" data-toolbar="h1" title="Large Heading">Large Heading</button>
-        <button type="button" class="notes-toolbar-btn" data-toolbar="h2" title="Medium Heading">Medium Heading</button>
-        <button type="button" class="notes-toolbar-btn" data-toolbar="h3" title="Small Heading">Small Heading</button>
-        <span class="notes-toolbar-sep"></span>
-        <button type="button" class="notes-toolbar-btn" data-toolbar="bold" title="Bold">Bold</button>
-        <button type="button" class="notes-toolbar-btn" data-toolbar="italic" title="Italic">Italic</button>
-        <button type="button" class="notes-toolbar-btn" data-toolbar="code" title="Inline Code">Inline Code</button>
-        <span class="notes-toolbar-sep"></span>
-        <button type="button" class="notes-toolbar-btn" data-toolbar="bullet" title="Bullet List">Bullet List</button>
-        <button type="button" class="notes-toolbar-btn" data-toolbar="numbered" title="Numbered List">Numbered List</button>
-        <button type="button" class="notes-toolbar-btn" data-toolbar="checklist" title="Checklist">Checklist</button>
-        <span class="notes-toolbar-sep"></span>
-        <button type="button" class="notes-toolbar-btn" data-toolbar="quote" title="Quote">Quote</button>
-        <button type="button" class="notes-toolbar-btn" data-toolbar="codeblock" title="Code Block">Code Block</button>
-        <button type="button" class="notes-toolbar-btn" data-toolbar="link" title="Link">Link</button>
-        <button type="button" class="notes-toolbar-btn" data-toolbar="table" title="Table">Table</button>
-        <button type="button" class="notes-toolbar-btn" data-toolbar="divider" title="Divider">Divider</button>
-      </div>
-      ${editorBody}
-    `;
-  }
-
-  function syncNoteTextareaToDraft() {
-    const nm = getNm();
-    const textarea = document.getElementById("note-content-input");
-    if (nm.draft && textarea instanceof HTMLTextAreaElement) {
-      nm.draft.contentMarkdown = textarea.value;
-    }
-  }
-
-  function switchNotesMode(mode) {
-    const nm = getNm();
-    if (!nm.draft) {
-      return;
-    }
-    syncNoteTextareaToDraft();
-    nm.mode = mode === "preview" ? "preview" : "write";
-    renderNoteEditor();
-  }
-
-  function renderNotesModal() {
-    const nm = getNm();
-    const subtitleEl = document.getElementById("notes-modal-subtitle");
-    if (subtitleEl) {
-      const parts = [nm.company, nm.jobTitle].filter(Boolean);
-      subtitleEl.textContent = parts.join(" · ");
-    }
-    renderNotesList();
-    renderNoteEditor();
-  }
-
-  async function openNotesModal(applicationId, selectedNoteId) {
-    const targetId = cleanString(applicationId);
-    if (!targetId) {
-      return;
-    }
-
-    const row = findApplicationRowById(targetId);
-    const nm = getNm();
-
-    const canonical = await getCanonicalDataForMutation();
-    const applications = Array.isArray(canonical.applications) ? canonical.applications : [];
-    const app = applications.find(function(a) {
-      return cleanString(a && (a.applicationId || a.id)) === targetId;
-    }) || {};
-
-    nm.open = true;
-    nm.applicationId = targetId;
-    nm.company = cleanString(row && row.company) || cleanString(app.company) || "";
-    nm.jobTitle = cleanString(row && row.jobTitle) || cleanString(app.jobTitle || app.role) || "";
-    nm.notes = normalizeNotes(app.notes);
-    nm.searchQuery = "";
-    nm.mode = "write";
-
-    const sorted = sortNotesByDate(nm.notes);
-    const requestedNoteId = cleanString(selectedNoteId);
-    const requestedNote = requestedNoteId ? nm.notes.find(function(note) {
-      return cleanString(note && note.id) === requestedNoteId;
-    }) : null;
-    if (requestedNote || sorted.length > 0) {
-      const activeNote = requestedNote || sorted[0];
-      nm.selectedNoteId = activeNote.id;
-      nm.draft = Object.assign({}, activeNote);
-      nm.isNewDraft = false;
-    } else {
-      nm.selectedNoteId = null;
-      nm.draft = null;
-      nm.isNewDraft = false;
-    }
-
-    const overlay = document.getElementById("notes-modal-overlay");
-    if (overlay) {
-      overlay.classList.remove("hidden");
-    }
-
-    renderNotesModal();
-  }
-
-  function closeNotesModal() {
-    const nm = getNm();
-    nm.open = false;
-    nm.applicationId = null;
-    nm.notes = [];
-    nm.selectedNoteId = null;
-    nm.draft = null;
-    nm.isNewDraft = false;
-    nm.mode = "write";
-    nm.searchQuery = "";
-
-    const overlay = document.getElementById("notes-modal-overlay");
-    if (overlay) {
-      overlay.classList.add("hidden");
-    }
-  }
-
-  function openNewNoteDraft() {
-    const nm = getNm();
-    nm.selectedNoteId = null;
-    nm.isNewDraft = true;
-    nm.mode = "write";
-    nm.draft = {
-      id: null,
-      date: todayDateString(),
-      title: "Untitled Note",
-      contentMarkdown: ""
-    };
-    renderNotesList();
-    renderNoteEditor();
-  }
-
-  function selectNote(noteId) {
-    const nm = getNm();
-    syncNoteTextareaToDraft();
-    const note = nm.notes.find(function(n) { return n.id === noteId; });
-    if (!note) {
-      return;
-    }
-
-    nm.selectedNoteId = noteId;
-    nm.draft = Object.assign({}, note);
-    nm.isNewDraft = false;
-    nm.mode = "write";
-
-    renderNotesList();
-    renderNoteEditor();
-  }
-
-  async function patchApplicationNotes(applicationId, notes) {
-    const targetId = cleanString(applicationId);
-    if (!targetId) {
-      return;
-    }
-
-    const canonical = await getCanonicalDataForMutation();
-    const applications = Array.isArray(canonical.applications) ? canonical.applications.slice() : [];
-    const targetIndex = applications.findIndex(function(item) {
-      return cleanString(item && (item.applicationId || item.id)) === targetId;
-    });
-
-    if (targetIndex < 0) {
-      throw new Error("Application record was not found.");
-    }
-
-    applications[targetIndex] = Object.assign({}, applications[targetIndex], {
-      notes: notes,
-      updatedAt: new Date().toISOString()
-    });
-
-    await saveCanonicalDataPatch({ applications: applications });
-    await refreshStateFromStorage();
-    renderApplications();
-    renderGlobalNotesPage();
-  }
-
-  async function saveCurrentNote() {
-    const nm = getNm();
-    if (!nm.draft) {
-      return;
-    }
-
-    syncNoteTextareaToDraft();
-
-    const dateInput = document.getElementById("note-date-input");
-    const titleInput = document.getElementById("note-title-input");
-
-    const date = cleanString(dateInput && dateInput.value);
-    const title = cleanString(titleInput && titleInput.value);
-    const contentMarkdown = String(nm.draft.contentMarkdown || "");
-
-    const validationEl = document.getElementById("notes-validation-msg");
-    const errors = [];
-    if (!date) {
-      errors.push("Date is required.");
-    }
-    if (!title) {
-      errors.push("Title is required.");
-    }
-
-    if (errors.length) {
-      if (validationEl) {
-        validationEl.textContent = errors.join(" ");
-      }
-      return;
-    }
-    if (validationEl) {
-      validationEl.textContent = "";
-    }
-
-    const now = new Date().toISOString();
-
-    if (nm.isNewDraft) {
-      const newNote = {
-        id: generateNoteId(),
-        date: date,
-        title: title,
-        contentMarkdown: contentMarkdown,
-        createdAt: now,
-        updatedAt: now
-      };
-      nm.notes.push(newNote);
-      nm.selectedNoteId = newNote.id;
-      nm.draft = Object.assign({}, newNote);
-      nm.isNewDraft = false;
-    } else {
-      const noteIndex = nm.notes.findIndex(function(n) { return n.id === nm.selectedNoteId; });
-      if (noteIndex < 0) {
-        return;
-      }
-      nm.notes[noteIndex] = Object.assign({}, nm.notes[noteIndex], {
-        date: date,
-        title: title,
-        contentMarkdown: contentMarkdown,
-        updatedAt: now
-      });
-      nm.draft = Object.assign({}, nm.notes[noteIndex]);
-    }
-
-    await patchApplicationNotes(nm.applicationId, nm.notes);
-    renderNotesList();
-    renderNoteEditor();
-    setStatus("Note saved.");
-  }
-
-  async function deleteCurrentNote() {
-    const nm = getNm();
-    if (!nm.selectedNoteId || nm.isNewDraft) {
-      return;
-    }
-
-    const confirmed = typeof globalThis.confirm === "function"
-      ? globalThis.confirm("Delete this note? This action cannot be undone.")
-      : true;
-    if (!confirmed) {
-      return;
-    }
-
-    const noteIndex = nm.notes.findIndex(function(n) { return n.id === nm.selectedNoteId; });
-    if (noteIndex < 0) {
-      return;
-    }
-
-    nm.notes.splice(noteIndex, 1);
-
-    const sorted = sortNotesByDate(nm.notes);
-    if (sorted.length > 0) {
-      const nextNote = sorted[Math.min(noteIndex, sorted.length - 1)];
-      nm.selectedNoteId = nextNote.id;
-      nm.draft = Object.assign({}, nextNote);
-      nm.isNewDraft = false;
-    } else {
-      nm.selectedNoteId = null;
-      nm.draft = null;
-      nm.isNewDraft = false;
-    }
-
-    await patchApplicationNotes(nm.applicationId, nm.notes);
-    renderNotesList();
-    renderNoteEditor();
-  }
-
-  function handleNotesModalClick(event) {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    if (target.id === "notes-modal-close-btn") {
-      closeNotesModal();
-      return;
-    }
-
-    if (target.id === "notes-new-btn") {
-      openNewNoteDraft();
-      return;
-    }
-
-    if (target.id === "notes-delete-btn") {
-      void deleteCurrentNote().catch(function(err) {
-        setStatus(err instanceof Error ? err.message : String(err));
-      });
-      return;
-    }
-
-    if (target.id === "notes-save-btn") {
-      void saveCurrentNote().catch(function() {
-        setStatus("Failed to save note. Please try again.");
-      });
-      return;
-    }
-
-    const action = cleanString(target.getAttribute("data-action"));
-    if (action === "notes-mode-write") {
-      switchNotesMode("write");
-      return;
-    }
-    if (action === "notes-mode-preview") {
-      switchNotesMode("preview");
-      return;
-    }
-
-    const toolbarAction = cleanString(target.getAttribute("data-toolbar"));
-    if (toolbarAction) {
-      insertMarkdownSyntax(toolbarAction);
-      return;
-    }
-
-    if (action === "select-note") {
-      const itemEl = target.closest("[data-note-id]");
-      const noteId = cleanString(itemEl && itemEl.getAttribute("data-note-id"));
-      if (noteId) {
-        selectNote(noteId);
-      }
-      return;
-    }
-  }
-
-  function handleNotesModalInput(event) {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    const nm = getNm();
-
-    if (target.id === "notes-search-input") {
-      nm.searchQuery = target.value;
-      renderNotesList();
-      return;
-    }
-
-    if (!nm.draft) {
-      return;
-    }
-
-    if (target.id === "note-date-input") {
-      nm.draft.date = target.value;
-    } else if (target.id === "note-title-input") {
-      nm.draft.title = target.value;
-    } else if (target.id === "note-content-input") {
-      nm.draft.contentMarkdown = target.value;
-    }
-  }
-
-  function handleNotesOverlayClick(event) {
-    if (event.target === event.currentTarget) {
-      closeNotesModal();
-    }
-  }
-
-  async function handleApplicationsTableChange(event) {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    if (cleanString(target.getAttribute("data-action")) !== "status-update") {
-      return;
-    }
-
-    const applicationId = cleanString(target.getAttribute("data-application-id"));
-    const nextStatus = "value" in target ? cleanString(target.value) : "";
-    await updateApplicationStatus(applicationId, nextStatus);
-  }
-
-  async function handleApplicationsTableClick(event) {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) {
-      return;
-    }
-
-    const action = cleanString(target.getAttribute("data-action"));
-    if (!action) {
-      return;
-    }
-
-    if (action === "open-job") {
-      const jobUrl = cleanString(target.getAttribute("data-job-url"));
-      if (jobUrl && globalThis.chrome && chrome.tabs && typeof chrome.tabs.create === "function") {
-        chrome.tabs.create({ url: jobUrl });
-      } else if (!jobUrl) {
-        setStatus("Original job URL is missing.");
-      }
-      return;
-    }
-
-    const applicationId = cleanString(target.getAttribute("data-application-id"));
-    if (!applicationId) {
-      return;
-    }
-
-    if (action === "view-resume") {
-      await openApplicationResumeEditor(applicationId);
-      return;
-    }
-
-    if (action === "open-notes") {
-      await openNotesModal(applicationId);
-      return;
-    }
-
-    if (action === "delete-application") {
-      const confirmed = typeof globalThis.confirm === "function"
-        ? globalThis.confirm("Delete this application?")
-        : true;
-      if (!confirmed) {
-        return;
-      }
-
-      await deleteApplication(applicationId);
-    }
   }
 
   function collectSettingsFromForm() {
@@ -7884,6 +5449,7 @@
     try {
       await saveTrackerSettingsFromForm();
       await tracker.testConnection();
+      await refreshTrackerData();
       setTrackerStatus("Tracker connection successful.");
     } catch (error) {
       setTrackerStatus(error instanceof Error ? error.message : String(error));
@@ -7892,41 +5458,14 @@
     }
   }
 
-  function mergeTrackerImportRecords(applications, legacyRecords) {
-    const merged = applications.map((application) => ({ ...application }));
-    legacyRecords.forEach((record) => {
-      const id = cleanString(record.applicationId || record.id);
-      const url = cleanString(record.jobUrl || record.url);
-      const index = merged.findIndex((application) =>
-        (id && cleanString(application.applicationId || application.id) === id) ||
-        (url && cleanString(application.jobUrl || application.url) === url)
-      );
-      if (index < 0) {
-        merged.push(record);
-      } else if (!Object.prototype.hasOwnProperty.call(merged[index], "formFieldCount")) {
-        const application = merged[index];
-        merged[index] = { ...record, ...application,
-          company: cleanString(application.company) || record.company,
-          jobTitle: cleanString(application.jobTitle || application.role) || record.jobTitle || record.role,
-          jobUrl: cleanString(application.jobUrl || application.url) || record.jobUrl,
-          notes: Array.isArray(application.notes) && application.notes.length ? application.notes : record.notes || application.notes,
-          formFieldCount: record.formFieldCount,
-          filledFieldCount: record.filledFieldCount
-        };
-      }
-    });
-    return merged;
-  }
-
   async function importExistingApplicationsToTracker() {
     trackerImportBtn.disabled = true;
     try {
       await saveTrackerSettingsFromForm();
-      const canonical = await getCanonicalDataForMutation();
-      const legacyRecords = await globalThis.Stage6ApplicationStore.listApplicationRecords();
-      const records = mergeTrackerImportRecords(canonical.applications || [], legacyRecords);
+      const records = await dataBoundary.getLegacyApplications();
       const imported = await tracker.importJobs(records);
       setTrackerStatus("Imported " + String(imported.length) + " applications into Tracker. Existing Tracker records were preserved.");
+      await refreshTrackerData();
     } catch (error) {
       setTrackerStatus(error instanceof Error ? error.message : String(error));
     } finally {
@@ -7988,7 +5527,7 @@
   }
 
   async function handleResetProfileResumeData() {
-    const confirmed = window.confirm("This will delete your saved Profile data from this device. Applications and application-specific resumes will not be deleted. Continue?");
+    const confirmed = window.confirm("This will delete your saved Profile data from this device. Tracker applications and notes are unchanged. Continue?");
     if (!confirmed) {
       return;
     }
@@ -8006,7 +5545,6 @@
         throw new Error("Profile reset is unavailable.");
       }
 
-      state.applicationResumeEditor = null;
       await refreshStateFromStorage();
       setActiveTab("settings");
       renderAll();
@@ -8021,14 +5559,13 @@
   }
 
   async function saveProfileResumeFromForm() {
-    const appMode = Boolean(state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft);
     flushManualResumeEditsToSharedState({ markDirty: true, debounce: false });
     await flushResumeAutosave({ force: true, silent: true });
     renderProfile();
     applyUiLanguage(getResumeLanguage());
     renderResume();
     schedulePreviewUpdate();
-    setStatus(appMode ? "Application resume saved." : "Profile saved.");
+    setStatus("Profile saved.");
   }
 
   async function saveAutofillAnswerFromForm() {
@@ -8356,7 +5893,7 @@
       const appData = await appDataStore.getAppData();
       const generated = Array.isArray(appData && appData.generatedResumes) ? appData.generatedResumes : [];
       generated.forEach(function addGenerated(item) {
-        const record = normalizeLocalResumeRecord(item, "appData", { key: appDataStore.APP_DATA_KEY || "appDataV1" });
+        const record = normalizeLocalResumeRecord(item, "appData", { key: appDataStore.APP_DATA_KEY || "profileDataV2" });
         addLocalResumeRecord(recordMap, record);
       });
     }
@@ -8769,36 +6306,6 @@
     return { changed: false, value: value };
   }
 
-  async function clearApplicationResumeReferences(resumeDraftId) {
-    const target = cleanString(resumeDraftId);
-    if (!target || !dataBoundary || typeof dataBoundary.getAppData !== "function" || typeof dataBoundary.saveAppData !== "function") {
-      return;
-    }
-
-    const canonical = await dataBoundary.getAppData();
-    const applications = Array.isArray(canonical && canonical.applications) ? canonical.applications : [];
-    let changed = false;
-    const nextApplications = applications.map(function mapApplication(item) {
-      const safe = item && typeof item === "object" ? item : {};
-      if (cleanString(safe.resumeDraftId || safe.resumeId || safe.resumeVersion || safe.resumeVersionId) !== target) {
-        return safe;
-      }
-      changed = true;
-      return {
-        ...safe,
-        resumeDraftId: "",
-        resumeId: "",
-        resumeVersion: "",
-        resumeVersionId: "",
-        updatedAt: new Date().toISOString()
-      };
-    });
-
-    if (changed) {
-      await dataBoundary.saveAppData({ applications: nextApplications });
-    }
-  }
-
   async function deleteLocalResumeDraft(resumeDraftId, record) {
     const target = cleanString(resumeDraftId);
     if (!target) {
@@ -8869,10 +6376,10 @@
       await setChromeLocal(localUpdates);
     }
 
-    await clearApplicationResumeReferences(target);
-
     refsToRemove.delete(COMPILED_RESUME_REGISTRY_KEY);
-    refsToRemove.delete(appDataStore && appDataStore.APP_DATA_KEY ? appDataStore.APP_DATA_KEY : "appDataV1");
+    refsToRemove.delete(appDataStore && appDataStore.APP_DATA_KEY ? appDataStore.APP_DATA_KEY : "profileDataV2");
+    refsToRemove.delete("appDataV1");
+    refsToRemove.delete("stage11CanonicalAppDataV1");
     LOCAL_RESUME_STORAGE_KEYS.forEach(function keepCollectionKey(storageKey) {
       refsToRemove.delete(storageKey);
     });
@@ -9118,8 +6625,7 @@
     if (mode === "ai" && state.editorMode === "manual") {
       flushManualResumeEditsToSharedState({ markDirty: true, debounce: false });
       await flushResumeAutosave({ force: true, silent: true });
-      const appMode = Boolean(state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft);
-      ensureResumeAiChatContext(appMode, appMode ? state.applicationResumeEditor.application : null);
+        ensureResumeAiChatContext();
     } else if (mode === "manual" && state.editorMode === "ai") {
       if (state.resumeAutosave.dirty) {
         await flushResumeAutosave({ force: true, silent: true });
@@ -9377,16 +6883,7 @@
 
   function getResumeForLanguageFromState(lang) {
     const safeLang = lang === "zh" ? "zh" : "en";
-    if (state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft) {
-      const draft = normalizeApplicationResumeDraft(
-        state.applicationResumeEditor.resumeDraft,
-        state.applicationResumeEditor.application,
-        "",
-        state.appData
-      );
-      state.applicationResumeEditor.resumeDraft = draft;
-      return normalizeResumeObject(draft.resumes[safeLang], safeLang);
-    }
+
     const dual = ensureDualResumeState();
     return normalizeResumeObject(dual.resumes[safeLang], safeLang);
   }
@@ -9397,19 +6894,7 @@
       ...translatedResume,
       language: safeLang
     }, safeLang);
-    if (state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft) {
-      const draft = normalizeApplicationResumeDraft(
-        state.applicationResumeEditor.resumeDraft,
-        state.applicationResumeEditor.application,
-        "",
-        state.appData
-      );
-      draft.resumes[safeLang] = normalized;
-      draft.activeResumeLanguage = safeLang;
-      draft.resumes = normalizeSharedResumeLanguages(draft.resumes);
-      state.applicationResumeEditor.resumeDraft = draft;
-      return;
-    }
+
     const dual = ensureDualResumeState();
     dual.resumes[safeLang] = normalized;
     state.appData.resumes = normalizeSharedResumeLanguages(dual.resumes);
@@ -9613,20 +7098,14 @@
     return "I updated your resume:\n" + lines.map(function(line) { return "- " + line; }).join("\n");
   }
 
-  function applyAiExecutionResult(execResult, lang, isAppMode) {
-    if (isAppMode) {
-      state.applicationResumeEditor.resumeDraft.resumes[lang] = normalizeResumeObject(execResult.resumeState, lang);
-      state.applicationResumeEditor.resumeDraft.activeResumeLanguage = lang;
-      state.applicationResumeEditor.resumeDraft.resumes = normalizeSharedResumeLanguages(state.applicationResumeEditor.resumeDraft.resumes);
-    } else {
-      state.appData.resumes[lang] = normalizeResumeObject(execResult.resumeState, lang);
-      state.appData.activeResumeLanguage = lang;
-      state.appData.resumes = normalizeSharedResumeLanguages(state.appData.resumes);
-    }
+  function applyAiExecutionResult(execResult, lang) {
+    state.appData.resumes[lang] = normalizeResumeObject(execResult.resumeState, lang);
+    state.appData.activeResumeLanguage = lang;
+    state.appData.resumes = normalizeSharedResumeLanguages(state.appData.resumes);
   }
 
-  async function persistAiExecutionResult(execResult, lang, isAppMode) {
-    applyAiExecutionResult(execResult, lang, isAppMode);
+  async function persistAiExecutionResult(execResult, lang) {
+    applyAiExecutionResult(execResult, lang);
     markResumeDirty({ cleanupEmptyObjects: true, language: lang, debounce: false });
     await flushResumeAutosave({
       force: true,
@@ -9695,7 +7174,7 @@
       return { ok: false, message: "Failed to apply recovered changes: " + (cleanString(execResult && execResult.error) || "Unknown error.") };
     }
 
-    await persistAiExecutionResult(execResult, safe.lang, safe.isAppMode);
+    await persistAiExecutionResult(execResult, safe.lang);
     return {
       ok: true,
       message: assistantMessage || formatResumeAiChangeSummary(execResult.changeSummary),
@@ -9730,21 +7209,11 @@
     if (sendBtn) sendBtn.disabled = true;
     renderAiChatMessages();
 
-    const isAppMode = Boolean(state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft);
     const lang = getResumeLanguage();
     const resumeSummary = buildAiResumeSummary();
     const settings = getAiSettings();
 
-    let guidanceContext = null;
-    if (isAppMode) {
-      const app = state.applicationResumeEditor.application || {};
-      guidanceContext = {
-        company: cleanString(app.company),
-        jobTitle: cleanString(app.jobTitle || app.title),
-        location: cleanString(app.location),
-        applicationId: cleanString(app.applicationId || app.id)
-      };
-    }
+    const guidanceContext = null;
 
     try {
       const planResult = await api.planResumeEdit({ userMessage, resumeSummary, settings, guidanceContext, chatHistory });
@@ -9786,7 +7255,6 @@
             guidanceContext: guidanceContext,
             execResult: execResult,
             lang: lang,
-            isAppMode: isAppMode,
             chatHistory: chatHistory
           });
           state.aiChat.isThinking = false;
@@ -9804,7 +7272,7 @@
         return;
       }
 
-      await persistAiExecutionResult(execResult, lang, isAppMode);
+      await persistAiExecutionResult(execResult, lang);
 
       state.aiChat.isThinking = false;
 
@@ -9822,6 +7290,26 @@
   // ────────────────────────────────────────────────────────────────────────────
 
   function bindEvents() {
+    for (const button of [trackerNotesRefreshBtn, trackerDashboardRefreshBtn]) {
+      if (button) button.addEventListener("click", () => { void refreshTrackerData(); });
+    }
+    if (trackerNotesJobEl) {
+      trackerNotesJobEl.addEventListener("change", () => {
+        state.notesPage.selectedJobId = trackerNotesJobEl.value;
+        void loadTrackerNotes(state.notesPage.selectedJobId).catch(error => setTrackerStatus(error.message));
+      });
+    }
+    if (trackerNotesSaveBtn) {
+      trackerNotesSaveBtn.addEventListener("click", () => {
+        void saveTrackerNotes().catch(error => setTrackerStatus(error.message));
+      });
+    }
+    if (notesAiSaveBtn) {
+      notesAiSaveBtn.addEventListener("click", () => {
+        void saveLatestNotesAiReply().catch(error => setTrackerStatus(error.message));
+      });
+    }
+
     if (openTrackerDashboardBtn) {
       openTrackerDashboardBtn.addEventListener("click", () => { void openTrackerDashboard(); });
     }
@@ -9854,16 +7342,12 @@
             setStatus("Resume import is running. Cancel or finish it before switching pages.");
             return;
           }
-          const wasApplicationResumeMode = Boolean(state.applicationResumeEditor);
-          if (wasApplicationResumeMode || state.activeTab === "profile-resume") {
+          if (state.activeTab === "profile-resume") {
             await flushPendingResumeWork();
           }
-          state.applicationResumeEditor = null;
 
           setActiveTab(tab);
-          if (wasApplicationResumeMode) {
-            renderAll();
-          }
+          if (tab === "dashboard" || tab === "notes") await refreshTrackerData();
         })().catch((error) => {
           setStatus(error instanceof Error ? error.message : String(error));
         });
@@ -10013,17 +7497,11 @@
           setStatus("Resume import is running. Cancel or finish it before switching pages.");
           return;
         }
-        const wasApplicationResumeMode = Boolean(state.applicationResumeEditor);
-        if (wasApplicationResumeMode || state.activeTab === "profile-resume") {
+        if (state.activeTab === "profile-resume") {
           await flushPendingResumeWork();
         }
-        if (hashTab !== "profile-resume") {
-          state.applicationResumeEditor = null;
-        }
         setActiveTab(hashTab);
-        if (wasApplicationResumeMode && !state.applicationResumeEditor) {
-          renderAll();
-        }
+        if (hashTab === "dashboard" || hashTab === "notes") await refreshTrackerData();
       })().catch((error) => {
         setStatus(error instanceof Error ? error.message : String(error));
       });
@@ -10040,14 +7518,6 @@
     if (uploadResumeProfileTopBtn) {
       uploadResumeProfileTopBtn.addEventListener("click", () => {
         openUploadResumeModal();
-      });
-    }
-
-    if (saveAppResumeTopBtn) {
-      saveAppResumeTopBtn.addEventListener("click", () => {
-        void saveProfileResumeFromForm().catch(() => {
-          setStatus("Failed to save application resume.");
-        });
       });
     }
 
@@ -10144,23 +7614,6 @@
             setStatus("Failed to copy extracted text.");
           });
         }
-      });
-    }
-
-    if (backToApplicationsBtn) {
-      backToApplicationsBtn.addEventListener("click", () => {
-        void (async function backToApplications() {
-          await flushPendingResumeWork();
-          state.applicationResumeEditor = null;
-          state.guidanceLoading = false;
-          state.guidanceError = "";
-          state.guidanceCollapsed = false;
-          setActiveTab("profile-resume");
-          renderAll();
-          await openTrackerDashboard();
-        })().catch((error) => {
-          setStatus(error instanceof Error ? error.message : String(error));
-        });
       });
     }
 
@@ -10341,19 +7794,7 @@
       if (el) {
         el.addEventListener("change", function(event) {
           event.stopPropagation();
-          if (state.applicationResumeEditor && state.applicationResumeEditor.resumeDraft) {
-            const draft = normalizeApplicationResumeDraft(
-              state.applicationResumeEditor.resumeDraft,
-              state.applicationResumeEditor.application,
-              "",
-              state.appData
-            );
-            const previousLang = getApplicationDraftLanguage(draft);
-            draft.resumes[previousLang] = collectActiveResumeFromForm(previousLang);
-            draft.activeResumeLanguage = getResumeLanguage();
-            draft.resumes = normalizeSharedResumeLanguages(draft.resumes);
-            state.applicationResumeEditor.resumeDraft = draft;
-          } else {
+
             const previousLang = editorLang === "zh" ? "zh" : "en";
             syncProfileResumeFormIntoState(previousLang);
             state.appData.activeResumeLanguage = getResumeLanguage();
@@ -10361,7 +7802,7 @@
             if (state.appData.profile && typeof state.appData.profile === "object") {
               state.appData.profile.resumeLanguage = getResumeLanguage();
             }
-          }
+
           markResumeDirty({ debounce: false });
           renderProfile();
           applyUiLanguage(getResumeLanguage());
@@ -10412,54 +7853,6 @@
       });
     }
 
-    if (applicationsSearchEl) {
-      applicationsSearchEl.addEventListener("input", () => {
-        renderApplications();
-      });
-    }
-
-    if (applicationsFilterEl) {
-      applicationsFilterEl.addEventListener("change", () => {
-        renderApplications();
-      });
-    }
-
-    if (applicationsSortEl) {
-      applicationsSortEl.addEventListener("change", () => {
-        renderApplications();
-      });
-    }
-
-    if (applicationsTableBodyEl) {
-      applicationsTableBodyEl.addEventListener("click", (event) => {
-        void handleApplicationsTableClick(event).catch((error) => {
-          setStatus(error instanceof Error ? error.message : String(error));
-        });
-      });
-
-      applicationsTableBodyEl.addEventListener("change", (event) => {
-        void handleApplicationsTableChange(event).catch((error) => {
-          setStatus(error instanceof Error ? error.message : String(error));
-        });
-      });
-    }
-
-    if (globalNotesSearchEl) {
-      globalNotesSearchEl.addEventListener("input", handleGlobalNotesFilterChange);
-    }
-
-    if (globalNotesCompanyFilterEl) {
-      globalNotesCompanyFilterEl.addEventListener("change", handleGlobalNotesFilterChange);
-    }
-
-    if (globalNotesStatusFilterEl) {
-      globalNotesStatusFilterEl.addEventListener("change", handleGlobalNotesFilterChange);
-    }
-
-    if (globalNotesListEl) {
-      globalNotesListEl.addEventListener("click", handleGlobalNotesClick);
-    }
-
     if (notesAiSendBtn) {
       notesAiSendBtn.addEventListener("click", () => {
         void handleNotesAiSend();
@@ -10468,15 +7861,7 @@
 
     if (notesAiClearBtn) {
       notesAiClearBtn.addEventListener("click", () => {
-        void handleNotesAiClear().catch((error) => {
-          setStatus(error instanceof Error ? error.message : String(error));
-        });
-      });
-    }
-
-    if (notesAiExportBtn) {
-      notesAiExportBtn.addEventListener("click", () => {
-        openNotesAiExportModal();
+        handleNotesAiClear();
       });
     }
 
@@ -10525,37 +7910,6 @@
       });
     }
 
-    const notesOverlayEl = document.getElementById("notes-modal-overlay");
-    if (notesOverlayEl) {
-      notesOverlayEl.addEventListener("click", (event) => {
-        handleNotesOverlayClick(event);
-        handleNotesModalClick(event);
-      });
-      notesOverlayEl.addEventListener("input", (event) => {
-        handleNotesModalInput(event);
-      });
-    }
-
-    if (notesAiExportModalOverlayEl) {
-      notesAiExportModalOverlayEl.addEventListener("click", (event) => {
-        const target = event.target;
-        if (event.target === event.currentTarget) {
-          closeNotesAiExportModal();
-          return;
-        }
-        if (!(target instanceof HTMLElement)) {
-          return;
-        }
-        if (target.id === "notes-ai-export-close-btn" || target.id === "notes-ai-export-cancel-btn") {
-          closeNotesAiExportModal();
-          return;
-        }
-        if (target.id === "notes-ai-export-submit-btn") {
-          void handleNotesAiExportSubmit();
-        }
-      });
-    }
-
     if (uploadResumeModalOverlayEl) {
       uploadResumeModalOverlayEl.addEventListener("click", (event) => {
         if (event.target === event.currentTarget) {
@@ -10575,10 +7929,10 @@
 
     await refreshStateFromStorage();
     state.trackerSettings = await tracker.getSettings();
-    await loadNotesAiMessages();
     bindEvents();
     startResumeAutosaveInterval();
     renderAll();
+    void refreshTrackerData();
     setStatus("Ready.");
   }
 

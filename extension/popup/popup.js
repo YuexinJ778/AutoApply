@@ -357,93 +357,6 @@
     };
   }
 
-  function detectLanguageFromText() {
-    const combined = Array.from(arguments).map(cleanString).join(" ");
-    if (!combined) return "en";
-    const zhMatches = combined.match(/[\u3400-\u9fff]/g) || [];
-    const compactLength = combined.replace(/\s/g, "").length;
-    if (zhMatches.length >= 20) return "zh";
-    if (compactLength && zhMatches.length / compactLength > 0.08) return "zh";
-    return "en";
-  }
-
-  function deepClone(value) {
-    if (typeof structuredClone === "function") {
-      try {
-        return structuredClone(value);
-      } catch {
-        // JSON cloning below handles values unsupported by structuredClone.
-      }
-    }
-    try {
-      return JSON.parse(JSON.stringify(value));
-    } catch {
-      return value;
-    }
-  }
-
-  function createEmptyResume(lang) {
-    const safeLang = cleanString(lang) === "zh" ? "zh" : "en";
-    return {
-      id: "resume_" + safeLang + "_default",
-      language: safeLang,
-      header: {
-        name: { firstName: "", middleName: "", lastName: "", waived: false },
-        email: { value: "", waived: false },
-        phone: { value: "", waived: false },
-        location: { value: "", waived: false },
-        linkedin: { value: "", waived: false },
-        github: { value: "", waived: false },
-        portfolio: { value: "", waived: false }
-      },
-      sections: []
-    };
-  }
-
-  function normalizeProfileResumeForDraft(resume, lang) {
-    const safeLang = cleanString(lang) === "zh" ? "zh" : "en";
-    const raw = resume && typeof resume === "object" ? deepClone(resume) : createEmptyResume(safeLang);
-    return {
-      ...raw,
-      id: cleanString(raw.id) || "app_resume_" + safeLang + "_" + String(Date.now()) + "_" + Math.random().toString(36).slice(2, 8),
-      language: safeLang,
-      header: raw.header && typeof raw.header === "object" ? raw.header : createEmptyResume(safeLang).header,
-      sections: Array.isArray(raw.sections) ? raw.sections : []
-    };
-  }
-
-  function resolveDualProfileResumeSnapshot(appData) {
-    const safe = appData && typeof appData === "object" ? appData : {};
-    const resumes = safe.resumes && typeof safe.resumes === "object" ? safe.resumes : {};
-    const activeResumeLanguage = cleanString(safe.activeResumeLanguage) === "zh" ? "zh" : "en";
-
-    return {
-      activeResumeLanguage: activeResumeLanguage,
-      resumes: {
-        en: normalizeProfileResumeForDraft(resumes.en, "en"),
-        zh: normalizeProfileResumeForDraft(resumes.zh, "zh")
-      }
-    };
-  }
-
-  function buildApplicationResumeDraftFromActiveProfile(appData, applicationId, nowIso) {
-    const snapshot = resolveDualProfileResumeSnapshot(appData);
-    const createdAt = cleanString(nowIso) || new Date().toISOString();
-    const draftId = "resume_draft_" + String(Date.now()) + "_" + Math.random().toString(36).slice(2, 8);
-    return {
-      id: draftId,
-      applicationId: cleanString(applicationId),
-      source: "copied_from_active_profile_resume",
-      baseLanguage: snapshot.activeResumeLanguage,
-      activeResumeLanguage: snapshot.activeResumeLanguage,
-      createdAt: createdAt,
-      updatedAt: createdAt,
-      resumes: snapshot.resumes,
-      pdfPath: "",
-      htmlPath: ""
-    };
-  }
-
   function normalizeDetectedJob(rawJob, activeTab) {
     if (dataBoundary && typeof dataBoundary.normalizeJob === "function") {
       return dataBoundary.normalizeJob({
@@ -682,8 +595,6 @@
       resumes: {},
       profile: {},
       resume: {},
-      jobs: [],
-      applications: [],
       autofillAnswers: [],
       settings: {}
     };
@@ -1083,32 +994,6 @@
     };
   }
 
-  function toApplicationRecordFromAutofill(resultData, contextInput) {
-    const safe = resultData && typeof resultData === "object" ? resultData : {};
-    const context = contextInput && typeof contextInput === "object" ? contextInput : {};
-    const contextJob = context.currentJob && typeof context.currentJob === "object" ? context.currentJob : {};
-    const candidate = safe.pendingApplicationRecord && typeof safe.pendingApplicationRecord === "object"
-      ? safe.pendingApplicationRecord
-      : safe.applicationRecord && typeof safe.applicationRecord === "object"
-        ? safe.applicationRecord
-        : null;
-
-    if (!candidate) {
-      return null;
-    }
-
-    return {
-      id: cleanString(candidate.applicationId),
-      company: cleanString(candidate.company) || cleanString(contextJob.company),
-      role: cleanString(candidate.role || candidate.jobTitle) || cleanString(contextJob.title),
-      status: cleanString(candidate.status) || "Saved",
-      jobUrl: cleanString(candidate.jobUrl) || cleanString(contextJob.url),
-      appliedAt: cleanString(candidate.appliedAt || candidate.createdAt) || new Date().toISOString(),
-      resumeId: cleanString(candidate.resumeId || candidate.resumeVersion || candidate.resumeVersionId) || cleanString(context.resumeDraftId),
-      notes: cleanString(candidate.notes)
-    };
-  }
-
   async function handleAutofill(options) {
     const config = options && typeof options === "object" ? options : {};
     const trigger = cleanString(config.trigger).toLowerCase() === "auto" ? "auto" : "manual";
@@ -1173,16 +1058,6 @@
       const resultData = response.data && typeof response.data === "object" ? response.data : {};
       if (resultData.trackerJob) showTrackerJob(resultData.trackerJob);
       if (resultData.trackerError) setTrackerStatus(resultData.trackerError);
-      if (appDataStore && typeof appDataStore.upsertApplication === "function") {
-        const appRecord = toApplicationRecordFromAutofill(resultData, {
-          currentJob: state.currentJob,
-          resumeDraftId: cleanString(pendingApplyState && pendingApplyState.resumeDraftId)
-        });
-        if (appRecord) {
-          await appDataStore.upsertApplication(appRecord);
-        }
-      }
-
       const filledCount = Number(resultData.filledFieldCount || 0) + Number(resultData.selectFilledCount || 0) + Number(resultData.checkboxFilledCount || 0);
 
       if (trigger === "auto") {
@@ -1401,213 +1276,20 @@
     }
   }
 
-  function upsertJobInList(jobsInput, normalizedJob) {
-    const jobs = Array.isArray(jobsInput) ? jobsInput.slice() : [];
-    const safeJob = normalizedJob && typeof normalizedJob === "object" ? normalizedJob : {};
-    const incomingJobId = cleanString(safeJob.jobId);
-    const incomingUrl = toComparableUrl(safeJob.url);
-
-    let targetIndex = -1;
-    if (incomingUrl) {
-      targetIndex = jobs.findIndex((item) => urlsMatch(item && item.url, safeJob.url));
-    }
-    if (targetIndex < 0 && incomingJobId) {
-      targetIndex = jobs.findIndex((item) => cleanString(item && item.jobId) === incomingJobId);
-    }
-
-    if (targetIndex >= 0) {
-      const existing = jobs[targetIndex] && typeof jobs[targetIndex] === "object" ? jobs[targetIndex] : {};
-      const merged = {
-        ...existing,
-        ...safeJob,
-        jobId: cleanString(existing.jobId) || cleanString(safeJob.jobId)
-      };
-      jobs[targetIndex] = merged;
-      return { jobs: jobs, job: merged };
-    }
-
-    jobs.push(safeJob);
-    return { jobs: jobs, job: safeJob };
-  }
-
-  function findApplicationIndexForJob(applicationsInput, job) {
-    const applications = Array.isArray(applicationsInput) ? applicationsInput : [];
-    const safeJob = job && typeof job === "object" ? job : {};
-    const targetJobId = cleanString(safeJob.jobId);
-    const targetUrl = toComparableUrl(safeJob.url);
-
-    return applications.findIndex((item) => {
-      const safe = item && typeof item === "object" ? item : {};
-      const appJobId = cleanString(safe.jobId);
-      const appUrl = toComparableUrl(cleanString(safe.jobUrl || safe.url));
-
-      if (targetUrl && appUrl && targetUrl === appUrl) {
-        return true;
-      }
-      if (targetJobId && appJobId && targetJobId === appJobId) {
-        return true;
-      }
-      return false;
-    });
-  }
-
-  function showMissingCurrentJobForSave() {
-    setStatus("No job detected. Open a job posting page first.");
-  }
-
   async function handleSaveJob() {
     setBusy(true);
-
     try {
       let currentJob = state.currentJob;
       if (!isCurrentJobValid(currentJob)) {
         const detection = await syncCurrentJobFromPage({ showExtractStatus: true });
         currentJob = detection.job;
       }
-
       if (!isCurrentJobValid(currentJob)) {
-        showMissingCurrentJobForSave();
+        setStatus("No job detected. Open a job posting page first.");
         return;
       }
-
-      await trackCurrentJob(currentJob);
-
-      const canonical = await getCanonicalData();
-      let normalizedJob = dataBoundary && typeof dataBoundary.normalizeJob === "function"
-        ? dataBoundary.normalizeJob(currentJob)
-        : fallbackNormalizeJob(currentJob, null);
-      const pageSnapshot = state.currentJobRaw && state.currentJobRaw.pageSnapshot && typeof state.currentJobRaw.pageSnapshot === "object"
-        ? state.currentJobRaw.pageSnapshot
-        : {};
-      const jobDescriptionText = cleanString(normalizedJob.descriptionText || currentJob.descriptionText || currentJob.description || currentJob.rawText || pageSnapshot.pageText);
-      const pageText = cleanString(pageSnapshot.pageText || currentJob.pageText);
-      const pageTitle = cleanString(pageSnapshot.title || normalizedJob.pageTitle || currentJob.pageTitle);
-      const detectedLanguage = detectLanguageFromText(jobDescriptionText, pageText, pageTitle);
-      normalizedJob = dataBoundary && typeof dataBoundary.normalizeJob === "function"
-        ? dataBoundary.normalizeJob({
-            ...normalizedJob,
-            hostname: cleanString(normalizedJob.hostname || pageSnapshot.hostname),
-            pathname: cleanString(normalizedJob.pathname || pageSnapshot.pathname),
-            pageTitle: pageTitle,
-            descriptionText: jobDescriptionText,
-            pageText: pageText,
-            htmlSnapshot: cleanString(pageSnapshot.htmlSnapshot || normalizedJob.htmlSnapshot || currentJob.htmlSnapshot),
-            extractedAt: cleanString(normalizedJob.extractedAt || pageSnapshot.extractedAt)
-          })
-        : {
-            ...normalizedJob,
-            hostname: cleanString(normalizedJob.hostname || pageSnapshot.hostname),
-            pathname: cleanString(normalizedJob.pathname || pageSnapshot.pathname),
-            pageTitle: pageTitle,
-            descriptionText: jobDescriptionText,
-            pageText: pageText,
-            htmlSnapshot: cleanString(pageSnapshot.htmlSnapshot || normalizedJob.htmlSnapshot || currentJob.htmlSnapshot),
-            extractedAt: cleanString(normalizedJob.extractedAt || pageSnapshot.extractedAt)
-          };
-
-      const upserted = upsertJobInList(canonical.jobs, normalizedJob);
-      const nextJobs = upserted.jobs;
-      const resolvedJob = upserted.job;
-
-      const nextApplications = Array.isArray(canonical.applications) ? canonical.applications.slice() : [];
-      const existingIndex = findApplicationIndexForJob(nextApplications, resolvedJob);
-
-      if (existingIndex < 0) {
-        const nowIso = new Date().toISOString();
-        const applicationId = "app_" + String(Date.now()) + "_" + Math.random().toString(36).slice(2, 8);
-        const resumeDraft = buildApplicationResumeDraftFromActiveProfile(canonical, applicationId, nowIso);
-        const newApplication = dataBoundary && typeof dataBoundary.normalizeApplication === "function"
-          ? dataBoundary.normalizeApplication({
-              applicationId: applicationId,
-              jobId: cleanString(resolvedJob.jobId),
-              status: "Saved",
-              createdAt: nowIso,
-              updatedAt: nowIso,
-              jobUrl: cleanString(resolvedJob.url),
-              company: cleanString(resolvedJob.company),
-              jobTitle: cleanString(resolvedJob.title),
-              location: cleanString(resolvedJob.location),
-              hostname: cleanString(resolvedJob.hostname || pageSnapshot.hostname),
-              pathname: cleanString(resolvedJob.pathname || pageSnapshot.pathname),
-              pageTitle: pageTitle,
-              jobDescriptionText: jobDescriptionText,
-              pageText: pageText,
-              htmlSnapshot: cleanString(pageSnapshot.htmlSnapshot || resolvedJob.htmlSnapshot || currentJob.htmlSnapshot),
-              extractedAt: cleanString(resolvedJob.extractedAt || pageSnapshot.extractedAt),
-              source: "popup-save-job",
-              detectedLanguage: detectedLanguage,
-              resumeDraftId: cleanString(resumeDraft.id),
-              resumeDraft: resumeDraft
-            })
-          : {
-              id: applicationId,
-              applicationId: applicationId,
-              jobId: cleanString(resolvedJob.jobId),
-              status: "Saved",
-              createdAt: nowIso,
-              updatedAt: nowIso,
-              jobUrl: cleanString(resolvedJob.url),
-              company: cleanString(resolvedJob.company),
-              jobTitle: cleanString(resolvedJob.title),
-              location: cleanString(resolvedJob.location),
-              hostname: cleanString(resolvedJob.hostname || pageSnapshot.hostname),
-              pathname: cleanString(resolvedJob.pathname || pageSnapshot.pathname),
-              pageTitle: pageTitle,
-              jobDescriptionText: jobDescriptionText,
-              pageText: pageText,
-              htmlSnapshot: cleanString(pageSnapshot.htmlSnapshot || resolvedJob.htmlSnapshot || currentJob.htmlSnapshot),
-              extractedAt: cleanString(resolvedJob.extractedAt || pageSnapshot.extractedAt),
-              source: "popup-save-job",
-              detectedLanguage: detectedLanguage,
-              resumeDraftId: cleanString(resumeDraft.id),
-              resumeDraft: resumeDraft
-            };
-        nextApplications.push(newApplication);
-      } else {
-        const existing = nextApplications[existingIndex] && typeof nextApplications[existingIndex] === "object" ? nextApplications[existingIndex] : {};
-        const existingApplicationId = cleanString(existing.applicationId || existing.id) || "app_" + String(Date.now()) + "_" + Math.random().toString(36).slice(2, 8);
-        const existingResumeDraft = existing.resumeDraft && typeof existing.resumeDraft === "object" ? existing.resumeDraft : null;
-        const shouldCreateMissingDraft = !existingResumeDraft && !cleanString(existing.resumeDraftId);
-        const missingDraft = shouldCreateMissingDraft
-          ? buildApplicationResumeDraftFromActiveProfile(canonical, existingApplicationId, new Date().toISOString())
-          : null;
-        nextApplications[existingIndex] = {
-          ...existing,
-          applicationId: existingApplicationId,
-          jobId: cleanString(resolvedJob.jobId) || cleanString(existing.jobId),
-          jobUrl: cleanString(resolvedJob.url) || cleanString(existing.jobUrl || existing.url),
-          company: cleanString(resolvedJob.company) || cleanString(existing.company),
-          jobTitle: cleanString(resolvedJob.title) || cleanString(existing.jobTitle || existing.role || existing.title),
-          location: cleanString(resolvedJob.location) || cleanString(existing.location),
-          hostname: cleanString(resolvedJob.hostname || pageSnapshot.hostname) || cleanString(existing.hostname),
-          pathname: cleanString(resolvedJob.pathname || pageSnapshot.pathname) || cleanString(existing.pathname),
-          pageTitle: pageTitle || cleanString(existing.pageTitle),
-          jobDescriptionText: jobDescriptionText || cleanString(existing.jobDescriptionText),
-          pageText: pageText || cleanString(existing.pageText),
-          htmlSnapshot: cleanString(pageSnapshot.htmlSnapshot || resolvedJob.htmlSnapshot || currentJob.htmlSnapshot) || cleanString(existing.htmlSnapshot),
-          extractedAt: cleanString(resolvedJob.extractedAt || pageSnapshot.extractedAt) || cleanString(existing.extractedAt),
-          source: "popup-save-job",
-          detectedLanguage: cleanString(existing.detectedLanguage) || detectedLanguage,
-          resumeDraftId: cleanString(existing.resumeDraftId) || cleanString(missingDraft && missingDraft.id),
-          resumeDraft: existingResumeDraft || missingDraft || null,
-          updatedAt: new Date().toISOString()
-        };
-      }
-
-      if (dataBoundary && typeof dataBoundary.saveAppData === "function") {
-        await dataBoundary.saveAppData({
-          jobs: nextJobs,
-          applications: nextApplications
-        });
-      }
-
-      if (storage && typeof storage.setJobData === "function") {
-        await storage.setJobData(buildCachedJobPayload(resolvedJob, state.currentJobRaw));
-      }
-
-      updateCurrentJobState(resolvedJob, buildCachedJobPayload(resolvedJob, state.currentJobRaw));
-      setDetectedJobSummaryState(resolvedJob, "Saved to Applications");
-      setStatus("Job saved.");
+      const saved = await trackCurrentJob(currentJob);
+      if (saved) setStatus("Job saved to Tracker.");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : String(error));
     } finally {

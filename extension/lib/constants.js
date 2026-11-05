@@ -2,7 +2,7 @@
   "use strict";
 
   const STORAGE_KEYS = Object.freeze({
-    APP_DATA: "appDataV1",
+    APP_DATA: "profileDataV2",
     JOB_DATA: "jobData",
     EXTENSION_SETTINGS: "extensionSettings",
     AI_CUSTOM_INSTRUCTIONS: "aiCustomInstructions",

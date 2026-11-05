@@ -38,23 +38,25 @@
     try {
       const headers = { Authorization: `Bearer ${settings.token}` };
       if (options.json !== undefined) headers["Content-Type"] = "application/json";
-      const response = await global.fetch(settings.url + path, {
+      const send = global.fetch.bind(global);
+      const requestOptions = {
         method: options.method || "GET",
         headers,
         body: options.form || (options.json !== undefined ? JSON.stringify(options.json) : undefined),
         signal: controller.signal
-      });
+      };
+      let response;
+      try {
+        response = await send(settings.url + path, requestOptions);
+      } catch (error) {
+        const message = error.name === "AbortError"
+          ? "Tracker request timed out."
+          : "Tracker is not running.";
+        throw new Error(`${message} ${START_HELP}`, { cause: error });
+      }
       const payload = await response.json();
       if (!response.ok) throw new Error(serverMessage(payload, response.status));
       return payload;
-    } catch (error) {
-      if (error.name === "AbortError") {
-        throw new Error(`Tracker request timed out. ${START_HELP}`, { cause: error });
-      }
-      if (error.name === "TypeError") {
-        throw new Error(`Tracker 未啟動. ${START_HELP}`, { cause: error });
-      }
-      throw error;
     } finally {
       clearTimeout(timer);
     }
@@ -79,6 +81,22 @@
 
   function patchJob(id, updates) {
     return request(`/api/jobs/${encodeURIComponent(id)}`, { method: "PATCH", json: updates });
+  }
+
+  function getStatuses() {
+    return request("/api/statuses");
+  }
+
+  function getSummary() {
+    return request("/api/summary");
+  }
+
+  function getNotes(id) {
+    return request(`/api/jobs/${encodeURIComponent(id)}/notes`);
+  }
+
+  function saveNotes(id, notes) {
+    return request(`/api/jobs/${encodeURIComponent(id)}/notes`, { method: "PUT", json: { notes } });
   }
 
   function uploadResume(id, blob, filename = "resume.pdf", label = filename) {
@@ -127,7 +145,8 @@
 
   global.AutoApplyTracker = Object.freeze({
     getSettings, saveSettings, createJob, getJobs, patchJob, uploadResume,
+    getStatuses, getSummary, getNotes, saveNotes,
     buildImportPayload, importJobs, getDashboardUrl, openDashboard,
-    testConnection: () => request("/api/statuses")
+    testConnection: getStatuses
   });
 })(globalThis);

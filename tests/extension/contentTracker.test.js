@@ -11,10 +11,8 @@ function harness({ pending = {}, reply = { ok: true, data: { job: { id: 'tracker
   const sent = [];
   const result = {
     ok: true, filledFieldCount: 1,
-    pendingApplicationRecord: {
-      company: 'Form Co', role: 'Engineer', jobUrl: 'https://ats.example/form',
-      filledFieldCount: 2, formFieldCount: detected
-    }
+    autofillStats: { filledFieldCount: 2, formFieldCount: detected },
+    trackerContext: { company: 'Form Co', job_title: 'Engineer', job_url: 'https://ats.example/form' }
   };
   const context = vm.createContext({
     console: { log() {}, error() {} },
@@ -63,12 +61,12 @@ test('content does not borrow a global pending job without tab association', asy
 });
 
 test('tracker failure preserves a completed autofill result', async () => {
-  const run = harness({ reply: { ok: false, error: 'Tracker 未啟動. Open the dashboard.' } });
+  const run = harness({ reply: { ok: false, error: 'Tracker is not running. Open the dashboard.' } });
   const response = await run.run();
   assert.equal(response.ok, true);
   assert.equal(response.data.ok, true);
-  assert.match(response.data.trackerError, /Tracker 未啟動/);
-  assert.equal(response.data.pendingApplicationRecord.filledFieldCount, 2);
+  assert.match(response.data.trackerError, /Tracker is not running/);
+  assert.equal(response.data.autofillStats.filledFieldCount, 2);
 });
 
 test('a page without detected fields creates no tracker sample', async () => {

@@ -1,4 +1,4 @@
-# Local tracker API (M1.1)
+# Local tracker API
 
 From the repository root, install and start the dashboard:
 
@@ -25,6 +25,7 @@ sends a runtime message to background for tracker operations. See
 | Method | Path | Request / response |
 | --- | --- | --- |
 | GET | `/api/statuses` | Returns the configured status records (`id`, `label`, etc.). |
+| GET | `/api/summary` | Returns `offer`, `rejected` and `pending` counts from the dashboard’s `calculate_summary_counts`, excluding archived jobs and respecting configured status groups. |
 | GET | `/api/jobs` | Returns jobs; optional `?url=` matches normalized URLs. |
 | POST | `/api/jobs` | JSON `company`, `job_title`, `job_url`; optional `location`, `email`, `applied_date`, `autofill_stats`. Finds the normalized URL and returns the existing job unchanged, or creates a new job with `source="extension"` and `status_id="planning"`. A supplied `status_id` is ignored. All updates use PATCH. |
 | PATCH | `/api/jobs/{id}` | JSON containing any of `status_id`, `applied_date`, `autofill_stats`; returns the updated job. |
@@ -36,7 +37,7 @@ Use server status **IDs**, such as `planning`, `applied`, and `interviewing`.
 Dates use `YYYY-MM-DD`. Autofill statistics are
 `{ "filled": 9, "detected": 10, "recorded_at": "2026-11-05T17:00:00Z" }`.
 Recording autofill statistics does not change status. The popup records
-submission only when the user clicks **I have submitted（我已送出）**.
+submission only when the user clicks **I have submitted**.
 
 URL identity ignores fragments, default ports, trailing slashes, and known
 tracking query parameters; meaningful job identifiers remain. Repeated imports

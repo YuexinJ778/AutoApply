@@ -32,7 +32,7 @@ async function popup({ offline = false, applicationForm = false, stored = null, 
       classList: { add() {}, remove() {} }, addEventListener(name, fn) { this[name] = fn; } });
     return elements.get(id);
   }
-  const trackerError = 'Tracker 未啟動。Run python -m streamlit run server/app.py and open dashboard.';
+  const trackerError = 'Tracker is not running. Run python -m streamlit run server/app.py and open dashboard.';
   const settings = { provider: 'minimax', model: 'test-model', apiKey: 'test-key' };
   const context = {
     document: { getElementById: element }, URL, Blob, TextEncoder, atob, btoa, structuredClone,
@@ -111,7 +111,7 @@ test('Tracker failure leaves tailoring working and its error visible after gener
   assert.equal(page.calls.generated, 1);
   assert.ok(page.local.pendingApply.resumeDraftId);
   assert.match(page.element('runtime-status').textContent, /Resume generated and saved/);
-  assert.match(page.element('tracker-status').textContent, /Tracker 未啟動/);
+  assert.match(page.element('tracker-status').textContent, /Tracker is not running/);
   assert.equal(page.calls.upload.length, 0);
 });
 

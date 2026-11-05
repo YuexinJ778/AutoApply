@@ -87,6 +87,11 @@ def create_app(token: str | None = None) -> FastAPI:
     def statuses():
         return _public(storage.load_settings()["statuses"])
 
+    @router.get("/summary")
+    def summary():
+        with storage._STORAGE_LOCK:
+            return storage.calculate_summary_counts(storage.load_jobs(), storage.load_settings())
+
     @router.get("/jobs")
     def jobs(url: str | None = None):
         return _public(storage.find_jobs_by_url(url))

@@ -2071,19 +2071,6 @@
     return cleanString(window.location && window.location.href) || undefined;
   }
 
-  function getSourceSite(jobUrl) {
-    const url = cleanString(jobUrl);
-    if (!url) {
-      return "unknown";
-    }
-
-    try {
-      return new URL(url).hostname.toLowerCase() || "unknown";
-    } catch {
-      return "unknown";
-    }
-  }
-
   function parseTitleMetadata() {
     const title = cleanString(document.title);
     if (!title) {
@@ -2109,39 +2096,6 @@
     return {
       role: title
     };
-  }
-
-  function deriveApplicationId() {
-    return "app-" + String(Date.now()) + "-" + Math.random().toString(36).slice(2, 8);
-  }
-
-  function deriveJobId(jobUrl, resumeRecord) {
-    const fromResume = cleanString(resumeRecord && resumeRecord.jobId);
-    if (fromResume) {
-      return fromResume;
-    }
-
-    const url = cleanString(jobUrl);
-    if (!url) {
-      return undefined;
-    }
-
-    try {
-      const parsed = new URL(url);
-      const queryKeys = ["jobId", "job_id", "jid", "gh_jid", "id"];
-
-      for (let index = 0; index < queryKeys.length; index += 1) {
-        const value = cleanString(parsed.searchParams.get(queryKeys[index]));
-        if (value) {
-          return value;
-        }
-      }
-
-      const segments = parsed.pathname.split("/").map(cleanString).filter(Boolean);
-      return segments[segments.length - 1] || undefined;
-    } catch {
-      return undefined;
-    }
   }
 
   function deriveStatus(fillResults, uploadResult, preSubmitCheck) {
@@ -2176,65 +2130,6 @@
     return { formFieldCount: detected.size, filledFieldCount: filled.size };
   }
 
-  function buildApplicationRecord(input) {
-    const jobUrl = cleanString(input.jobUrl);
-    const createdAt = new Date().toISOString();
-    const uploadResult = input.uploadResult || {};
-    const resumeRecord = input.resumeRecord || null;
-    const stats = countAutofillStats(input.formFields || [], input.fillResults || []);
-
-    return {
-      applicationId: deriveApplicationId(),
-      jobId: deriveJobId(jobUrl, resumeRecord),
-      resumeId: cleanString(uploadResult.resumeId) || cleanString(resumeRecord && resumeRecord.resumeId) || undefined,
-      resumeVersionId: cleanString(resumeRecord && resumeRecord.versionId) || undefined,
-      company: cleanString(input.company) || cleanString(resumeRecord && resumeRecord.company) || undefined,
-      role: cleanString(input.role) || cleanString(resumeRecord && resumeRecord.role) || undefined,
-      createdAt: createdAt,
-      updatedAt: createdAt,
-      jobUrl: jobUrl || undefined,
-      sourceSite: cleanString(input.sourceSite) || "unknown",
-      status: deriveStatus(input.fillResults || [], uploadResult, input.preSubmitCheck || {}),
-      mode: PIPELINE_MODE,
-      formFieldCount: stats.formFieldCount,
-      filledFieldCount: stats.filledFieldCount,
-      preSubmitCheck: input.preSubmitCheck || {
-        ok: false,
-        canSubmit: false,
-        missingRequiredFields: [],
-        unknownRequiredFields: [],
-        pageValidationErrors: [],
-        warnings: []
-      }
-    };
-  }
-
-  async function getResumeRecordById(resumeId) {
-    const registry = global.Stage6ResumeRegistryStorage;
-    if (!registry) {
-      return null;
-    }
-
-    const id = cleanString(resumeId);
-    if (id && typeof registry.getCompiledResumeById === "function") {
-      try {
-        return await registry.getCompiledResumeById(id);
-      } catch {
-        return null;
-      }
-    }
-
-    if (typeof registry.getLatestCompiledResumeRecord === "function") {
-      try {
-        return await registry.getLatestCompiledResumeRecord();
-      } catch {
-        return null;
-      }
-    }
-
-    return null;
-  }
-
   function createResultSummary(input) {
     const canSubmit = Boolean(input.preSubmitCheck && (input.preSubmitCheck.canSubmit !== undefined ? input.preSubmitCheck.canSubmit : input.preSubmitCheck.ok));
     const errors = uniqueList(input.errors || []);
@@ -2254,10 +2149,8 @@
     return {
       ok: ok,
       mode: PIPELINE_MODE,
-      applicationId: input.applicationId,
       status: input.status,
       resumeId: input.resumeId,
-      jobId: input.jobId,
       scannedFieldCount: scannedFieldCount,
       mappedFieldCount: mappedFieldCount,
       filledFieldCount: filledFieldCount,
@@ -2290,14 +2183,8 @@
         unknownRequiredFields: (input.preSubmitCheck && input.preSubmitCheck.unknownRequiredFields) || [],
         pageValidationErrors: (input.preSubmitCheck && input.preSubmitCheck.pageValidationErrors) || []
       },
-      pendingApplicationRecord: input.pendingApplicationRecord || null,
-      recordSummary: {
-        saved: Boolean(input.recordSaved),
-        pendingConfirmation: Boolean(input.pendingApplicationRecord),
-        applicationId: input.applicationId,
-        status: input.status,
-        errorMessage: cleanString(input.recordError) || undefined
-      },
+      autofillStats: input.autofillStats,
+      trackerContext: input.trackerContext,
       fillResults: input.fillResults || [],
       message:
         "prepare-only pipeline complete: status=" + cleanString(input.status) +
@@ -2346,8 +2233,6 @@
     let uploadResult;
     let preSubmitCheck;
 
-    let applicationRecord = null;
-    let savedRecord = null;
     let pageLanguage = "unknown";
 
     try {
@@ -2560,34 +2445,12 @@
       errors.push("validateApplication failed: " + (error instanceof Error ? error.message : String(error)));
     }
 
-    try {
-      const titleMetadata = parseTitleMetadata();
-      const jobUrl = getCurrentJobUrl();
-      const sourceSite = getSourceSite(jobUrl);
-      const resumeRecord = await getResumeRecordById(uploadResult.resumeId);
-
-      applicationRecord = buildApplicationRecord({
-        jobUrl: jobUrl,
-        sourceSite: sourceSite,
-        company: titleMetadata.company,
-        role: titleMetadata.role,
-        resumeRecord: resumeRecord,
-        uploadResult: uploadResult,
-        formFields: formFields,
-        fillResults: fillResults,
-        preSubmitCheck: preSubmitCheck
-      });
-
-      debugLog("application record pending confirmation", {
-        applicationId: applicationRecord.applicationId,
-        status: applicationRecord.status,
-        jobUrl: applicationRecord.jobUrl || "",
-        resumeId: applicationRecord.resumeId || ""
-      });
-    } catch (error) {
-      const recordError = error instanceof Error ? error.message : String(error);
-      errors.push("buildApplicationRecord failed: " + recordError);
-    }
+    const titleMetadata = parseTitleMetadata();
+    const trackerContext = {
+      company: titleMetadata.company,
+      job_title: titleMetadata.role,
+      job_url: getCurrentJobUrl()
+    };
 
     const scannedFieldCount = formFields.length;
     const mappedFieldCount = mappings.filter(function filterMapped(item) { return item.status === "matched"; }).length;
@@ -2614,18 +2477,8 @@
       errors.push("no effective fill and upload failed");
     }
 
-    const finalRecord = savedRecord || applicationRecord;
-    const canSubmit = Boolean(preSubmitCheck.canSubmit !== undefined ? preSubmitCheck.canSubmit : preSubmitCheck.ok);
     const hasFatal = !hasProfile || scannedFieldCount === 0 || (!hasEffectiveFill && !uploadSucceeded);
-    const finalStatus = hasFatal
-      ? "failed"
-      : finalRecord && cleanString(finalRecord.status)
-        ? finalRecord.status
-        : canSubmit
-          ? "ready_to_submit"
-          : errors.length > 0
-            ? "failed"
-            : "draft_prepared";
+    const finalStatus = hasFatal ? "failed" : deriveStatus(fillResults, uploadResult, preSubmitCheck);
     const ok = finalStatus !== "failed";
 
     debugLog("final status", {
@@ -2690,10 +2543,8 @@
 
     return createResultSummary({
       ok: ok,
-      applicationId: finalRecord && finalRecord.applicationId,
       status: finalStatus,
-      resumeId: (finalRecord && finalRecord.resumeId) || uploadResult.resumeId,
-      jobId: finalRecord && finalRecord.jobId,
+      resumeId: uploadResult.resumeId,
       scannedFieldCount: scannedFieldCount,
       mappedFieldCount: mappedFieldCount,
       filledFieldCount: filledFieldCount,
@@ -2710,9 +2561,8 @@
       preSubmitCheck: preSubmitCheck,
       uploadResult: uploadResult,
       fillResults: fillResults,
-      recordSaved: false,
-      recordError: "",
-      pendingApplicationRecord: applicationRecord
+      autofillStats: countAutofillStats(formFields, fillResults),
+      trackerContext: trackerContext
     });
   }
 

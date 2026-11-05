@@ -64,6 +64,7 @@ def test_non_ascii_wrong_token_returns_401(client):
 @pytest.mark.parametrize("authorization", [None, "Bearer incorrect", "Basic test-tracker-token"])
 @pytest.mark.parametrize("method,path,kwargs", [
     ("GET", "/api/statuses", {}),
+    ("GET", "/api/summary", {}),
     ("GET", "/api/jobs", {}),
     ("POST", "/api/jobs", {"json": payload()}),
     ("PATCH", f"/api/jobs/{uuid.uuid4()}", {"json": {"status_id": "applied"}}),
@@ -127,6 +128,29 @@ def test_statuses_and_patch_use_server_status_ids(client):
     assert saved["status_id"] == "applied"
     assert saved["applied_date"] == "2026-11-05"
     assert saved["autofill_stats"]["filled"] == 9
+
+
+def test_summary_matches_dashboard_groups_with_custom_statuses_and_archives(client):
+    settings = storage.load_settings()
+    for status in settings["statuses"]:
+        if status["id"] == "rejected":
+            status["summary_group"] = "pending"
+    settings["statuses"].extend([
+        {"id": "custom_hired", "label": "Custom hired", "summary_group": "offer", "order": 90, "active": False},
+        {"id": "custom_waiting", "label": "Team decision", "summary_group": "pending", "order": 100, "active": True},
+        {"id": "custom_declined", "label": "Declined", "summary_group": "rejected", "order": 110, "active": True},
+    ])
+    storage.save_settings(settings)
+    for index, status_id in enumerate(["offer", "custom_hired", "custom_waiting", "custom_declined", "rejected", "planning"]):
+        storage.create_job({**payload(job_url=f"https://example.com/{index}"), "status_id": status_id})
+    archived = storage.create_job({**payload(), "status_id": "offer"})
+    storage.archive_job(archived["id"])
+
+    response = client.get("/api/summary", headers=AUTH)
+
+    assert response.status_code == 200
+    assert response.json() == {"offer": 2, "rejected": 1, "pending": 3}
+    assert response.json() == storage.calculate_summary_counts(storage.load_jobs(), storage.load_settings())
 
 
 def test_invalid_patch_status_returns_the_storage_reason(client):

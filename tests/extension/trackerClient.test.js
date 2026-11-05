@@ -83,6 +83,27 @@ test("lookup encodes the whole posting URL and updates use PATCH", async () => {
   assert.deepEqual(JSON.parse(requests[1].options.body), { status_id: "applied", applied_date: "2026-11-05" });
 });
 
+test("notes read and save use the server Markdown endpoint", async () => {
+  const notes = "## Follow up\n\n**Call** next week.";
+  const { client, requests } = load(async () => response({ notes }), configured);
+  assert.equal((await client.getNotes("job-1")).notes, notes);
+  assert.equal((await client.saveNotes("job-1", notes)).notes, notes);
+  assert.equal(requests[0].url, "http://127.0.0.1:8765/api/jobs/job-1/notes");
+  assert.equal(requests[0].options.method, "GET");
+  assert.equal(requests[1].options.method, "PUT");
+  assert.deepEqual(JSON.parse(requests[1].options.body), { notes });
+});
+
+test("summary and statuses retain the server's configured groups and records", async () => {
+  const summary = { offer: 2, rejected: 1, pending: 3 };
+  const statuses = [{ id: "custom_offer", label: "Custom hired", summary_group: "offer" }];
+  const { client, requests } = load(async url => response(url.endsWith("/summary") ? summary : statuses), configured);
+  assert.equal(await client.getSummary(), summary);
+  assert.equal(await client.getStatuses(), statuses);
+  assert.equal(requests[0].url, "http://127.0.0.1:8765/api/summary");
+  assert.equal(requests[1].url, "http://127.0.0.1:8765/api/statuses");
+});
+
 test("resume upload uses multipart file and label without overriding its boundary", async () => {
   const { client, requests } = load(async () => response({ source: "extension" }), configured);
   await client.uploadResume("job-1", new Blob(["%PDF-1.7"], { type: "application/pdf" }), "tailored.pdf", "Tailored resume");
@@ -134,12 +155,40 @@ test("server authentication and storage reasons are shown unchanged", async () =
 test("server offline reminds users to run Streamlit and open the dashboard without retrying", async () => {
   const { client, requests } = load(async () => { throw new TypeError("Failed to fetch"); }, configured);
   await assert.rejects(client.getJobs(), error => {
-    assert.match(error.message, /Tracker 未啟動/);
+    assert.match(error.message, /Tracker is not running/);
     assert.match(error.message, /python -m streamlit run server\/app.py/);
     assert.match(error.message, /open the dashboard/);
     return true;
   });
   assert.equal(requests.length, 1);
+});
+
+for (const error of [new SyntaxError("Unexpected JSON response"), new TypeError("Response body is unusable")]) {
+  test(`${error.name} while reading a response retains its original error`, async () => {
+    const { client } = load(async () => ({ ok: true, json: async () => { throw error; } }), configured);
+    await assert.rejects(client.getJobs(), actual => actual === error);
+  });
+}
+
+test("malformed server error content is not reported as an offline tracker", async () => {
+  for (const payload of [null, { detail: [{ msg: "Missing location" }] }]) {
+    const { client } = load(async () => response(payload, 422), configured);
+    await assert.rejects(client.getJobs(), error => {
+      assert.equal(error.name, "TypeError");
+      assert.doesNotMatch(error.message, /Tracker is not running/);
+      return true;
+    });
+  }
+});
+
+test("request construction errors propagate without attempting fetch", async () => {
+  const { client, requests } = load(undefined, configured);
+  await assert.rejects(client.patchJob("job-1", { unsupported: 1n }), error => {
+    assert.equal(error.name, "TypeError");
+    assert.doesNotMatch(error.message, /Tracker is not running/);
+    return true;
+  });
+  assert.equal(requests.length, 0);
 });
 
 test("a stalled tracker request aborts and clears its timer", async () => {
@@ -203,10 +252,10 @@ test("zero detected fields do not create a tracker coverage sample", async () =>
 });
 
 test("background forwards tracker errors to the content caller", async () => {
-  const send = background({ createJob: async () => { throw new Error("Tracker 未啟動"); } });
+  const send = background({ createJob: async () => { throw new Error("Tracker is not running."); } });
   const result = await send({ type: "TRACKER_AUTOFILL", job: {}, formFieldCount: 1, filledFieldCount: 0 });
   assert.equal(result.ok, false);
-  assert.equal(result.error, "Tracker 未啟動");
+  assert.equal(result.error, "Tracker is not running.");
 });
 
 for (const [description, tab] of [

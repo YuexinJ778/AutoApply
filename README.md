@@ -1,14 +1,14 @@
 # AutoApply
 
-AI-assisted resume tailoring and application autofill, with a local Python job tracker, 14 resume tools, 331 Python tests, and 70 extension tests.
+AI-assisted resume tailoring and application autofill, with a local Python job tracker, 14 resume tools, 335 Python tests, and 88 extension tests.
 
 [![CI](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml/badge.svg)](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-331_Python_%2B_70_extension-blue)](tests/)
+[![Tests](https://img.shields.io/badge/tests-335_Python_%2B_88_extension-blue)](tests/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Chrome MV3](https://img.shields.io/badge/Chrome-Manifest_V3-blue)](extension/manifest.json)
 [![Python](https://img.shields.io/badge/Python-3.12%2B-blue)](server/requirements.txt)
 
-**Merge progress (M2):** job capture, tailored PDFs, autofill coverage and explicit submission confirmation now reach the local tracker API. Legacy local application/notes cleanup follows in M3. The demo below shows the earlier workflow. [Tracker setup and validation](docs/tracker-extension.md).
+**Merge progress (M3):** applications, notes and dashboard counts now use the local tracker API. Legacy application data is read only for import. The demo below shows the earlier workflow. [Tracker setup and validation](docs/tracker-extension.md).
 
 ## Demo
 
@@ -28,7 +28,7 @@ Job applications repeat the same profile entry, resume edits, and status updates
 | **Tailor** | Edit English or Chinese resumes through 14 local operations; review changes in the A4 preview and retain resume versions. |
 | **Autofill** | Map fields to profile values, reuse confirmed field knowledge, and attach generated resumes on supported forms; include HSBC/SuccessFactors matching rules. |
 | **Track** | Save jobs, tailored PDF versions, autofill coverage and explicit submission confirmations to the local Python tracker; Applications opens its dashboard. |
-| **Prepare** | Generate job summaries, key-skill guidance, and resume suggestions; keep per-application notes with an AI notes assistant. |
+| **Notes** | Review and edit tracker notes, ask the AI assistant about saved notes across applications, and save a reply to the selected job. |
 
 ## Architecture
 
@@ -46,7 +46,7 @@ flowchart TB
   Console <--> Provider
 ```
 
-The popup captures the active job page through the background worker and content script. The extension sends selected job, resume, or notes context directly to the configured provider. Profiles and resume artifacts stay local; legacy application/notes storage remains until M3. The popup sends tracking actions to the FastAPI inside the Streamlit process; content scripts forward tracking messages through background. See [architecture and site-specific matching](docs/architecture.md).
+The popup captures the active job page through the background worker and content script. The extension sends selected job, resume, or notes context directly to the configured provider. Profiles and resume artifacts stay local. Applications and notes use server storage, with legacy extension data read only for import. The popup sends tracking actions to the FastAPI inside the Streamlit process; content scripts forward tracking messages through background. See [architecture and site-specific matching](docs/architecture.md).
 
 ## Agent design
 
@@ -114,7 +114,7 @@ Package the extension with `python3 scripts/package_extension.py`; the ZIP is wr
 
 ## Privacy & Security
 
-Profiles, resumes, API keys, settings, application records, and notes stay in the extension's `chrome.storage.local` until a feature sends selected context to a configured provider. AI requests can include job text, relevant resume content, instructions, conversations, or notes. PDF import can send the selected PDF to a provider that supports it. API keys authenticate those requests.
+Profiles, resumes, API keys, settings and autofill knowledge stay in the extension's `chrome.storage.local`. Applications and notes are stored by the local tracker; older extension applications remain read only for import. AI requests can include job text, relevant resume content, instructions, conversations, or notes. PDF import can send the selected PDF to a provider that supports it. API keys authenticate those requests.
 
 The tracker stores JSON, CSV, resumes, attachments, notes, and reminders under its local `data/`, `applications/`, and `backups/` directories, which Git ignores. It does not call an LLM provider. Its optional application-account/password fields are saved as plain text.
 
@@ -139,8 +139,8 @@ The implementation and test evidence are linked below.
 | Measure | Result | Evidence |
 | --- | --- | --- |
 | Resume operations | 14: 3 contact, 4 section, 3 entry, 4 line | [Executable allowlist](extension/options/resumeFunctions.js), [tools table](docs/tools.md) |
-| Python tests | 331 passed; 294 subtests | [Tracker test suite](tests/server/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
-| Extension tests | 70 passed: resume validation, tool documentation, tracker client, background/content routing, popup workflows and import | [Node test suite](tests/extension/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
+| Python tests | 335 passed; 294 subtests | [Tracker test suite](tests/server/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
+| Extension tests | 88 passed: resume validation, tool documentation, tracker client, background/content routing, popup workflows, read-only import, profile storage, server notes and summary | [Node test suite](tests/extension/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
 | Lint and packaging | Ruff correctness rules, ESLint recommended, JavaScript syntax, and ZIP packaging | [CI workflow](.github/workflows/ci.yml) |
 
 See the [benchmark plan](docs/evaluation.md) for portal field counts and paired timing runs.
@@ -152,7 +152,7 @@ Autofill support varies by website.
 - CAPTCHA, login, MFA, and portal-specific steps require user interaction.
 - Custom widgets, dynamic forms, cross-origin frames, and file-upload controls can need site-specific handling.
 - Provider failures and incorrect model proposals can stop editing; review the generated content and filled fields.
-- The tracker is single-user. Legacy local application/notes data remains until M3 cleanup; the current tracking workflow uses the local API.
+- The tracker is single-user. Application tracking and notes require its running local API; older extension applications are available only for import.
 - Local data is not encrypted by this project; current features use broad host access and the debugger permission.
 - The shared provider-settings guard currently requires a nonempty API-key field for Ollama.
 

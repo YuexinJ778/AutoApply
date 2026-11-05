@@ -141,13 +141,9 @@ function resolveApplyRuntime() {
 }
 
 async function recordTrackerAutofill(result, explicitJob) {
-  const record = result.pendingApplicationRecord;
+  const record = result.autofillStats;
   if (!record || record.formFieldCount <= 0) return;
-  const job = explicitJob || {
-    company: record.company,
-    job_title: record.role,
-    job_url: record.jobUrl
-  };
+  const job = explicitJob || result.trackerContext;
   const response = await chrome.runtime.sendMessage({
     type: "TRACKER_AUTOFILL", job: job, hasExplicitJob: Boolean(explicitJob),
     filledFieldCount: record.filledFieldCount,

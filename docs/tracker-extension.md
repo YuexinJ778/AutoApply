@@ -1,4 +1,4 @@
-# Extension tracking (M2)
+# Extension tracking
 
 1. Install `server/requirements.txt` and start the tracker:
    `python -m streamlit run server/app.py --server.address 127.0.0.1 --browser.gatherUsageStats false`.
@@ -13,7 +13,7 @@
    **Save Job** find or create the server application. Repeating either action
    leaves the server's existing status, company, title and dates unchanged.
 5. Review the generated resume and filled form. Submit through the website
-   yourself, then click **I have submitted（我已送出）** in the popup to record
+   yourself, then click **I have submitted** in the popup to record
    Applied and the local calendar date. Applications opens the tracker dashboard.
 
 Generated tailored PDFs are uploaded into that application's PDF version
@@ -39,12 +39,17 @@ autofill counts. Status mapping belongs to the server; Withdrawn is archived.
 Repeated imports preserve existing tracker edits. Invalid batches show the
 server's record number and reason and write nothing.
 
-Legacy local application and notes code remains until M3. Use the tracker
-dashboard for the current server records; the Console's old summary and Notes
-features will be consolidated in that milestone. The Applications management
-page has already been removed.
+Application tracking and notes use the server as their only writable store.
+Console dashboard counts come from the same summary function as the Streamlit
+dashboard. Notes AI reads current server notes; saving a note writes through the
+API. The Notes job picker selects the Markdown editor and save target; the AI
+assistant reads saved notes across applications. Chat stays in the current tab
+until **Save latest reply to selected job** writes it to that job's note.
+Older extension application data stays read only for import, including
+records saved before updating the extension. Profile and resume edits do not
+rewrite those old records. Applications opens the tracker dashboard.
 
-## Validation — 2026-11-05
+## M2 validation — 2026-11-05
 
 - **331 Python tests** and **70 extension tests** pass. The 42 new extension
   cases cover the client/background, popup workflows with the real resume

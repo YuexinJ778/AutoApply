@@ -3,7 +3,8 @@
 
   const KNOWLEDGE_BASE_KEY = "autofillKnowledgeBase";
   const LEGACY_DATASET_KEY = "autofillDataset";
-  const APP_DATA_KEY = "appDataV1";
+  const APP_DATA_KEY = "profileDataV2";
+  const LEGACY_APP_DATA_KEY = "appDataV1";
   const MODAL_ROOT_ID = "stage8-autofill-review-root";
   const MODAL_STYLE_ID = "stage8-autofill-review-style";
   const SCAN_SELECTOR = "input, textarea, select";
@@ -536,11 +537,11 @@
       }
     }
 
-    const payload = await getLocal([KNOWLEDGE_BASE_KEY, LEGACY_DATASET_KEY, APP_DATA_KEY, "profile", "candidateProfile", "candidateResume"]);
+    const payload = await getLocal([KNOWLEDGE_BASE_KEY, LEGACY_DATASET_KEY, APP_DATA_KEY, LEGACY_APP_DATA_KEY, "profile", "candidateProfile", "candidateResume"]);
     const rawStoredKb = payload[KNOWLEDGE_BASE_KEY];
     let knowledgeBase = normalizeKnowledgeBase(rawStoredKb);
     let changed = !rawStoredKb;
-    const appData = payload[APP_DATA_KEY] && typeof payload[APP_DATA_KEY] === "object" ? payload[APP_DATA_KEY] : {};
+    const appData = payload[APP_DATA_KEY] || payload[LEGACY_APP_DATA_KEY] || {};
 
     if (appData && typeof appData === "object") {
       knowledgeBase.profile = mergeProfiles(
@@ -582,10 +583,9 @@
     }
 
     try {
-      const payload = await getLocal([APP_DATA_KEY]);
-      const appData = payload[APP_DATA_KEY] && typeof payload[APP_DATA_KEY] === "object"
-        ? payload[APP_DATA_KEY]
-        : {};
+      const appStore = global.Stage10AppDataStore;
+      if (!appStore) return;
+      const appData = await appStore.getAppData();
       const existingAnswers = Array.isArray(appData.autofillAnswers) ? appData.autofillAnswers : [];
       const updatedAnswers = existingAnswers.slice();
 
@@ -630,7 +630,7 @@
         }
       });
 
-      await setLocal({ [APP_DATA_KEY]: { ...appData, autofillAnswers: updatedAnswers } });
+      await appStore.saveAppData({ ...appData, autofillAnswers: updatedAnswers });
     } catch {
       // Non-fatal — primary persistence is autofillKnowledgeBase
     }
