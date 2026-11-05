@@ -32,7 +32,6 @@
         "storage/appDataStore.js",
         "lib/profile/profileLoader.js",
         "storage/resumeRegistryStore.js",
-        "storage/applicationStore.js",
         "storage/autofillKnowledgeBase.js",
         "content/applyPipeline.js",
         "content/keywordAutofill.js",

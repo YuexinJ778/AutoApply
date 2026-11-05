@@ -1,38 +1,8 @@
 (function attachStage11DataBoundary(global) {
   "use strict";
 
-  const VALID_APPLICATION_STATUSES = Object.freeze([
-    "Saved",
-    "Applied",
-    "Interview",
-    "Offer",
-    "Rejected",
-    "Withdrawn"
-  ]);
-
-  const LEGACY_STATUS_TO_CANONICAL = Object.freeze({
-    saved: "Saved",
-    to_apply: "Saved",
-    draft: "Saved",
-    applied: "Applied",
-    interview: "Interview",
-    interviewing: "Interview",
-    offer: "Offer",
-    accepted: "Offer",
-    rejected: "Rejected",
-    withdrawn: "Withdrawn"
-  });
-
-  const CANONICAL_STATUS_TO_LEGACY = Object.freeze({
-    Saved: "saved",
-    Applied: "applied",
-    Interview: "interviewing",
-    Offer: "offer",
-    Rejected: "rejected",
-    Withdrawn: "withdrawn"
-  });
-
-  const CANONICAL_DATA_KEY = "stage11CanonicalAppDataV1";
+  const CANONICAL_DATA_KEY = "stage11ProfileDataV1";
+  const LEGACY_CANONICAL_DATA_KEY = "stage11CanonicalAppDataV1";
   const PROFILE_RESUME_RESET_VERSION = "2026-04-27-clean-profile-resume";
 
   function cleanString(value) {
@@ -85,20 +55,6 @@
     return parsed.toISOString();
   }
 
-  function toIsoOrEmpty(value) {
-    const raw = cleanString(value);
-    if (!raw) {
-      return "";
-    }
-
-    const parsed = new Date(raw);
-    if (Number.isNaN(parsed.getTime())) {
-      return "";
-    }
-
-    return parsed.toISOString();
-  }
-
   function normalizeComparableUrl(url) {
     const raw = cleanString(url);
     if (!raw) {
@@ -128,13 +84,13 @@
     }
 
     return new Promise((resolve) => {
-      area.get([CANONICAL_DATA_KEY], (result) => {
+      area.get([CANONICAL_DATA_KEY, LEGACY_CANONICAL_DATA_KEY], (result) => {
         if (global.chrome && chrome.runtime && chrome.runtime.lastError) {
           resolve(null);
           return;
         }
 
-        const candidate = result && result[CANONICAL_DATA_KEY];
+        const candidate = result && (result[CANONICAL_DATA_KEY] || result[LEGACY_CANONICAL_DATA_KEY]);
         resolve(isObject(candidate) ? candidate : null);
       });
     });
@@ -147,7 +103,7 @@
     }
 
     await new Promise((resolve, reject) => {
-      area.set({ [CANONICAL_DATA_KEY]: canonicalData }, () => {
+      area.set({ [CANONICAL_DATA_KEY]: normalizeCanonicalAppData(canonicalData) }, () => {
         if (global.chrome && chrome.runtime && chrome.runtime.lastError) {
           reject(new Error(chrome.runtime.lastError.message));
           return;
@@ -155,43 +111,6 @@
         resolve();
       });
     });
-  }
-
-  function isApplicationStatusValid(status) {
-    const safe = cleanString(status);
-    return VALID_APPLICATION_STATUSES.includes(safe);
-  }
-
-  function normalizeApplicationStatus(status) {
-    const safe = cleanString(status);
-    if (isApplicationStatusValid(safe)) {
-      return safe;
-    }
-
-    const lowered = safe.toLowerCase();
-    return LEGACY_STATUS_TO_CANONICAL[lowered] || "Saved";
-  }
-
-  function normalizeApplicationNotes(value) {
-    return ensureArray(value).map((item) => {
-      const safe = isObject(item) ? item : {};
-      const nextAction = cleanString(safe.nextAction);
-      const contentMarkdown = firstNonEmpty([safe.contentMarkdown, safe.content]) ||
-        (nextAction ? "## Next Action\n" + nextAction : "");
-      return {
-        id: firstNonEmpty([safe.id]) || buildDeterministicId("note", [safe.date, safe.title, contentMarkdown, safe.createdAt]),
-        date: firstNonEmpty([safe.date]) || new Date().toISOString().slice(0, 10),
-        title: firstNonEmpty([safe.title]) || "Untitled Note",
-        contentMarkdown: contentMarkdown,
-        createdAt: toIsoOrNow(firstNonEmpty([safe.createdAt, safe.updatedAt])),
-        updatedAt: toIsoOrNow(firstNonEmpty([safe.updatedAt, safe.createdAt]))
-      };
-    }).filter((item) => cleanString(item.id));
-  }
-
-  function toLegacyApplicationStatus(status) {
-    const canonical = normalizeApplicationStatus(status);
-    return CANONICAL_STATUS_TO_LEGACY[canonical] || "saved";
   }
 
   function hasAnyContent(value, depth) {
@@ -295,205 +214,13 @@
     };
   }
 
-  function detectLanguageFromText() {
-    const combined = ensureArray(Array.prototype.slice.call(arguments)).map(cleanString).join(" ");
-    if (!combined) return "en";
-    const zhMatches = combined.match(/[\u3400-\u9fff]/g) || [];
-    const letters = combined.replace(/\s/g, "");
-    if (zhMatches.length >= 20) return "zh";
-    if (letters.length && zhMatches.length / letters.length > 0.08) return "zh";
-    return "en";
-  }
-
-  function normalizeApplication(rawApplication) {
-    const safe = isObject(rawApplication) ? rawApplication : {};
-
-    const createdAt = toIsoOrNow(firstNonEmpty([safe.createdAt, safe.appliedAt, safe.updatedAt]));
-    const updatedAt = toIsoOrNow(firstNonEmpty([safe.updatedAt, safe.createdAt, safe.appliedAt]));
-    const applicationId = firstNonEmpty([safe.applicationId, safe.id]) || buildDeterministicId("application", [safe.jobId, createdAt]);
-    const appliedAt = toIsoOrEmpty(firstNonEmpty([safe.appliedAt]));
-    const jobUrl = firstNonEmpty([safe.jobUrl, safe.url, safe.link]);
-    let hostname = firstNonEmpty([safe.hostname, safe.host]);
-    let pathname = firstNonEmpty([safe.pathname, safe.path]);
-    if (jobUrl && (!hostname || !pathname)) {
-      try {
-        const parsed = new URL(jobUrl);
-        hostname = hostname || parsed.hostname;
-        pathname = pathname || parsed.pathname;
-      } catch {
-        // Keep the supplied host and path when the URL cannot be parsed.
-      }
-    }
-    const jobDescriptionText = firstNonEmpty([safe.jobDescriptionText, safe.descriptionText, safe.description, safe.rawText]);
-    const pageText = firstNonEmpty([safe.pageText, safe.fullPageText]);
-    const pageTitle = firstNonEmpty([safe.pageTitle, safe.titleText]);
-    const detectedLanguage = cleanString(safe.detectedLanguage) === "zh"
-      ? "zh"
-      : cleanString(safe.detectedLanguage) === "en"
-        ? "en"
-        : detectLanguageFromText(jobDescriptionText, pageText, pageTitle);
-
-    return {
-      applicationId: applicationId,
-      jobId: firstNonEmpty([safe.jobId]),
-      status: normalizeApplicationStatus(safe.status),
-      resumeDraftId: firstNonEmpty([safe.resumeDraftId, safe.resumeId, safe.resumeVersion, safe.resumeVersionId]),
-      jobUrl: jobUrl,
-      url: jobUrl,
-      hostname: hostname,
-      pathname: pathname,
-      pageTitle: pageTitle,
-      jobDescriptionText: jobDescriptionText,
-      pageText: pageText,
-      htmlSnapshot: firstNonEmpty([safe.htmlSnapshot, safe.cleanedHtml, safe.html]),
-      extractedAt: toIsoOrNow(firstNonEmpty([safe.extractedAt, safe.updatedAt, safe.createdAt])),
-      source: firstNonEmpty([safe.source]) || "unknown",
-      detectedLanguage: detectedLanguage,
-      resumeDraft: isObject(safe.resumeDraft) ? safe.resumeDraft : null,
-      resumeGuidance: isObject(safe.resumeGuidance) ? safe.resumeGuidance : null,
-      notes: normalizeApplicationNotes(safe.notes),
-      company: firstNonEmpty([safe.company, safe.companyName, safe.employer]),
-      jobTitle: firstNonEmpty([safe.jobTitle, safe.role, safe.title, safe.rawTitle]),
-      location: firstNonEmpty([safe.location, safe.jobLocation]),
-      appliedAt: appliedAt,
-      createdAt: createdAt,
-      updatedAt: updatedAt
-    };
-  }
-
-  function toLegacyApplicationShape(normalizedApplication, fallback) {
-    const safe = isObject(normalizedApplication) ? normalizedApplication : {};
-    const extra = isObject(fallback) ? fallback : {};
-
-    return {
-      ...extra,
-      id: firstNonEmpty([safe.applicationId, extra.id]),
-      applicationId: firstNonEmpty([safe.applicationId, extra.applicationId]),
-      company: firstNonEmpty([extra.company, safe.company]),
-      role: firstNonEmpty([extra.role, extra.jobTitle, safe.jobTitle]),
-      status: toLegacyApplicationStatus(safe.status),
-      jobUrl: firstNonEmpty([extra.jobUrl, safe.jobUrl]),
-      url: firstNonEmpty([extra.url, safe.url, safe.jobUrl]),
-      hostname: firstNonEmpty([safe.hostname, extra.hostname]),
-      pathname: firstNonEmpty([safe.pathname, extra.pathname]),
-      pageTitle: firstNonEmpty([safe.pageTitle, extra.pageTitle]),
-      jobDescriptionText: firstNonEmpty([safe.jobDescriptionText, extra.jobDescriptionText]),
-      pageText: firstNonEmpty([safe.pageText, extra.pageText]),
-      htmlSnapshot: firstNonEmpty([safe.htmlSnapshot, extra.htmlSnapshot]),
-      extractedAt: firstNonEmpty([safe.extractedAt, extra.extractedAt]),
-      detectedLanguage: firstNonEmpty([safe.detectedLanguage, extra.detectedLanguage]),
-      resumeDraft: isObject(safe.resumeDraft) ? safe.resumeDraft : (isObject(extra.resumeDraft) ? extra.resumeDraft : null),
-      resumeGuidance: isObject(safe.resumeGuidance) ? safe.resumeGuidance : (isObject(extra.resumeGuidance) ? extra.resumeGuidance : null),
-      notes: normalizeApplicationNotes(safe.notes),
-      appliedAt: firstNonEmpty([extra.appliedAt, safe.appliedAt, safe.updatedAt, safe.createdAt]),
-      resumeId: firstNonEmpty([safe.resumeDraftId, extra.resumeId, extra.resumeVersion, extra.resumeVersionId]),
-      location: firstNonEmpty([extra.location, safe.location]),
-      createdAt: firstNonEmpty([safe.createdAt, extra.createdAt]),
-      updatedAt: firstNonEmpty([safe.updatedAt, extra.updatedAt])
-    };
-  }
-
-  function toLegacyJobShape(normalizedJob, fallback) {
-    const safe = isObject(normalizedJob) ? normalizedJob : {};
-    const extra = isObject(fallback) ? fallback : {};
-
-    return {
-      ...extra,
-      jobId: firstNonEmpty([safe.jobId, extra.jobId]),
-      id: firstNonEmpty([safe.jobId, extra.id]),
-      title: firstNonEmpty([safe.title, extra.title]),
-      role: firstNonEmpty([safe.title, extra.role]),
-      rawTitle: firstNonEmpty([safe.title, extra.rawTitle]),
-      company: firstNonEmpty([safe.company, extra.company]),
-      location: firstNonEmpty([safe.location, extra.location]),
-      jobUrl: firstNonEmpty([safe.url, extra.jobUrl]),
-      url: firstNonEmpty([safe.url, extra.url]),
-      description: firstNonEmpty([safe.descriptionText, extra.description]),
-      rawText: firstNonEmpty([safe.descriptionText, extra.rawText]),
-      descriptionText: firstNonEmpty([safe.descriptionText, extra.descriptionText]),
-      extractedAt: firstNonEmpty([safe.extractedAt, extra.extractedAt])
-    };
-  }
-
   function normalizeCanonicalAppData(raw) {
     const safe = isObject(raw) ? raw : {};
-
-    const profile = isObject(safe.profile) ? safe.profile : {};
-    const resume = isObject(safe.resume)
-      ? safe.resume
-      : isObject(safe.masterResume)
-        ? safe.masterResume
-        : {};
-
-    const jobs = ensureArray(safe.jobs)
-      .map((item) => normalizeJob(item))
-      .filter((item) => Boolean(cleanString(item.title) || cleanString(item.url) || cleanString(item.descriptionText)));
-
-    const jobsById = new Map();
-    const jobsByUrl = new Map();
-
-    jobs.forEach((job) => {
-      const jobId = cleanString(job.jobId);
-      const jobUrl = normalizeComparableUrl(job.url);
-      if (jobId && !jobsById.has(jobId)) {
-        jobsById.set(jobId, job);
-      }
-      if (jobUrl && !jobsByUrl.has(jobUrl)) {
-        jobsByUrl.set(jobUrl, job);
-      }
-    });
-
-    const applications = ensureArray(safe.applications)
-      .map((item) => normalizeApplication(item))
-      .map((application) => {
-        const next = { ...application };
-        const urlKey = normalizeComparableUrl(next.jobUrl);
-
-        if (!cleanString(next.jobId) && urlKey && jobsByUrl.has(urlKey)) {
-          next.jobId = cleanString(jobsByUrl.get(urlKey).jobId);
-        }
-
-        if (!cleanString(next.jobId)) {
-          const derivedJob = normalizeJob({
-            title: next.jobTitle,
-            company: next.company,
-            location: next.location,
-            url: next.jobUrl,
-            hostname: next.hostname,
-            pathname: next.pathname,
-            pageTitle: next.pageTitle,
-            descriptionText: next.jobDescriptionText,
-            pageText: next.pageText,
-            htmlSnapshot: next.htmlSnapshot,
-            extractedAt: next.createdAt
-          });
-          const derivedKey = normalizeComparableUrl(derivedJob.url);
-          const existingDerived = (derivedKey && jobsByUrl.get(derivedKey)) || jobsById.get(cleanString(derivedJob.jobId));
-          const stableJob = existingDerived || derivedJob;
-
-          if (!existingDerived && (cleanString(stableJob.title) || cleanString(stableJob.url) || cleanString(stableJob.descriptionText))) {
-            jobs.push(stableJob);
-            if (cleanString(stableJob.jobId)) {
-              jobsById.set(cleanString(stableJob.jobId), stableJob);
-            }
-            if (derivedKey) {
-              jobsByUrl.set(derivedKey, stableJob);
-            }
-          }
-
-          next.jobId = cleanString(stableJob.jobId);
-        }
-
-        return next;
-      });
-
     return {
-      activeResumeLanguage: cleanString(safe.activeResumeLanguage || (profile && profile.resumeLanguage)) === "zh" ? "zh" : "en",
+      activeResumeLanguage: cleanString(safe.activeResumeLanguage || (safe.profile && safe.profile.resumeLanguage)) === "zh" ? "zh" : "en",
       resumes: isObject(safe.resumes) ? safe.resumes : {},
-      profile: profile,
-      resume: resume,
-      jobs: jobs,
-      applications: applications,
+      profile: isObject(safe.profile) ? safe.profile : {},
+      resume: isObject(safe.resume) ? safe.resume : (isObject(safe.masterResume) ? safe.masterResume : {}),
       autofillAnswers: ensureArray(safe.autofillAnswers),
       settings: isObject(safe.settings) ? safe.settings : {}
     };
@@ -518,130 +245,6 @@
     };
   }
 
-  function findJobIndexByIdentity(list, job) {
-    const jobs = ensureArray(list);
-    const safeJob = isObject(job) ? job : {};
-    const targetJobId = cleanString(safeJob.jobId);
-    const targetUrl = normalizeComparableUrl(safeJob.url);
-
-    for (let index = 0; index < jobs.length; index += 1) {
-      const item = isObject(jobs[index]) ? jobs[index] : {};
-      const itemJobId = cleanString(item.jobId);
-      const itemUrl = normalizeComparableUrl(item.url);
-
-      if (targetUrl && itemUrl && targetUrl === itemUrl) {
-        return index;
-      }
-
-      if (targetJobId && itemJobId && targetJobId === itemJobId) {
-        return index;
-      }
-    }
-
-    return -1;
-  }
-
-  function mergeJobs(baseJobs, incomingJobs) {
-    const output = ensureArray(baseJobs).map((item) => normalizeJob(item));
-    const list = ensureArray(incomingJobs).map((item) => normalizeJob(item));
-
-    list.forEach((incoming) => {
-      const index = findJobIndexByIdentity(output, incoming);
-      if (index < 0) {
-        output.push(incoming);
-        return;
-      }
-
-      const existing = isObject(output[index]) ? output[index] : {};
-      output[index] = normalizeJob({
-        ...existing,
-        ...incoming,
-        jobId: firstNonEmpty([existing.jobId, incoming.jobId]),
-        company: firstNonEmpty([incoming.company, existing.company]),
-        title: firstNonEmpty([incoming.title, existing.title]),
-        location: firstNonEmpty([incoming.location, existing.location]),
-        url: firstNonEmpty([incoming.url, existing.url]),
-        descriptionText: firstNonEmpty([incoming.descriptionText, existing.descriptionText]),
-        extractedAt: firstNonEmpty([incoming.extractedAt, existing.extractedAt])
-      });
-    });
-
-    return output;
-  }
-
-  function findApplicationIndexByIdentity(list, application) {
-    const apps = ensureArray(list);
-    const safe = isObject(application) ? application : {};
-    const targetId = cleanString(safe.applicationId);
-    const targetUrl = normalizeComparableUrl(firstNonEmpty([safe.jobUrl, safe.url]));
-    const targetJobId = cleanString(safe.jobId);
-
-    for (let index = 0; index < apps.length; index += 1) {
-      const item = isObject(apps[index]) ? apps[index] : {};
-      const itemId = cleanString(item.applicationId);
-      const itemUrl = normalizeComparableUrl(firstNonEmpty([item.jobUrl, item.url]));
-      const itemJobId = cleanString(item.jobId);
-
-      if (targetId && itemId && targetId === itemId) {
-        return index;
-      }
-
-      if (targetUrl && itemUrl && targetUrl === itemUrl) {
-        return index;
-      }
-
-      if (targetJobId && itemJobId && targetJobId === itemJobId) {
-        return index;
-      }
-    }
-
-    return -1;
-  }
-
-  function mergeApplications(baseApplications, incomingApplications) {
-    const output = ensureArray(baseApplications).map((item) => normalizeApplication(item));
-    const list = ensureArray(incomingApplications).map((item) => normalizeApplication(item));
-
-    list.forEach((incoming) => {
-      const index = findApplicationIndexByIdentity(output, incoming);
-      if (index < 0) {
-        output.push(incoming);
-        return;
-      }
-
-      const existing = isObject(output[index]) ? output[index] : {};
-      output[index] = normalizeApplication({
-        ...existing,
-        ...incoming,
-        applicationId: firstNonEmpty([existing.applicationId, incoming.applicationId]),
-        jobId: firstNonEmpty([incoming.jobId, existing.jobId]),
-        status: firstNonEmpty([incoming.status, existing.status]),
-        resumeDraftId: firstNonEmpty([incoming.resumeDraftId, existing.resumeDraftId]),
-        resumeDraft: isObject(existing.resumeDraft) ? existing.resumeDraft : incoming.resumeDraft,
-        jobUrl: firstNonEmpty([incoming.jobUrl, existing.jobUrl]),
-        hostname: firstNonEmpty([incoming.hostname, existing.hostname]),
-        pathname: firstNonEmpty([incoming.pathname, existing.pathname]),
-        pageTitle: firstNonEmpty([incoming.pageTitle, existing.pageTitle]),
-        jobDescriptionText: firstNonEmpty([incoming.jobDescriptionText, existing.jobDescriptionText]),
-        pageText: firstNonEmpty([incoming.pageText, existing.pageText]),
-        htmlSnapshot: firstNonEmpty([incoming.htmlSnapshot, existing.htmlSnapshot]),
-        extractedAt: firstNonEmpty([incoming.extractedAt, existing.extractedAt]),
-        source: firstNonEmpty([incoming.source, existing.source]),
-        detectedLanguage: firstNonEmpty([incoming.detectedLanguage, existing.detectedLanguage]),
-        resumeGuidance: isObject(incoming.resumeGuidance) ? incoming.resumeGuidance : existing.resumeGuidance,
-        company: firstNonEmpty([incoming.company, existing.company]),
-        jobTitle: firstNonEmpty([incoming.jobTitle, existing.jobTitle]),
-        location: firstNonEmpty([incoming.location, existing.location]),
-        notes: ensureArray(incoming.notes).length || !ensureArray(existing.notes).length ? incoming.notes : existing.notes,
-        appliedAt: firstNonEmpty([incoming.appliedAt, existing.appliedAt]),
-        createdAt: firstNonEmpty([existing.createdAt, incoming.createdAt]),
-        updatedAt: firstNonEmpty([incoming.updatedAt, existing.updatedAt])
-      });
-    });
-
-    return output;
-  }
-
   function hasMeaningfulProfile(profileInput) {
     return hasAnyContent(profileInput, 0);
   }
@@ -653,184 +256,66 @@
   async function getAppData() {
     const appStore = global.Stage10AppDataStore;
     const localStore = global.Stage3Storage;
-
-    let storedAppData = {};
-    let storedSettings = {};
-    let currentJob = null;
-    let storedCanonicalRaw;
-
-    if (appStore && typeof appStore.getAppData === "function") {
-      storedAppData = await appStore.getAppData();
-    }
-
-    if (localStore && typeof localStore.getSettings === "function") {
-      storedSettings = await localStore.getSettings();
-    }
-
-    if (localStore && typeof localStore.getJobData === "function") {
-      currentJob = await localStore.getJobData();
-    }
-
-    storedCanonicalRaw = await loadCanonicalDataFromStorage();
-    if (
-      isObject(storedCanonicalRaw) &&
-      cleanString(storedCanonicalRaw.settings && storedCanonicalRaw.settings.profileResumeDataResetVersion) !== PROFILE_RESUME_RESET_VERSION
-    ) {
-      storedCanonicalRaw = {
-        ...storedCanonicalRaw,
-        settings: {
-          ...(isObject(storedCanonicalRaw.settings) ? storedCanonicalRaw.settings : {}),
-          profileResumeDataResetVersion: PROFILE_RESUME_RESET_VERSION
-        }
-      };
-      await saveCanonicalDataToStorage(storedCanonicalRaw);
-    }
-
-    const legacyCanonical = normalizeCanonicalAppData({
-      profile: storedAppData.profile,
-      resume: storedAppData.resume || storedAppData.masterResume,
-      activeResumeLanguage: storedAppData.activeResumeLanguage,
-      resumes: storedAppData.resumes,
-      jobs: storedAppData.jobs,
-      applications: storedAppData.applications,
-      autofillAnswers: storedAppData.autofillAnswers,
-      settings: isObject(storedAppData.settings) ? storedAppData.settings : {}
+    const stored = appStore ? await appStore.getAppData() : {};
+    const canonical = normalizeCanonicalAppData(await loadCanonicalDataFromStorage());
+    const localSettings = localStore ? await localStore.getSettings() : {};
+    return normalizeCanonicalAppData({
+      profile: hasMeaningfulProfile(stored.profile) ? stored.profile : canonical.profile,
+      resume: hasMeaningfulResume(stored.masterResume) ? stored.masterResume : canonical.resume,
+      activeResumeLanguage: stored.activeResumeLanguage || canonical.activeResumeLanguage,
+      resumes: isObject(stored.resumes) && Object.keys(stored.resumes).length ? stored.resumes : canonical.resumes,
+      autofillAnswers: ensureArray(stored.autofillAnswers).length ? stored.autofillAnswers : canonical.autofillAnswers,
+      settings: { ...(stored.settings || {}), ...canonical.settings, ...localSettings }
     });
-
-    const canonicalFromStorage = normalizeCanonicalAppData(storedCanonicalRaw);
-    const hasStoredCanonical = isObject(storedCanonicalRaw);
-
-    const mergedJobs = mergeJobs(
-      hasStoredCanonical && hasOwn(storedCanonicalRaw, "jobs") ? canonicalFromStorage.jobs : [],
-      legacyCanonical.jobs
-    );
-
-    const mergedApplications = mergeApplications(
-      hasStoredCanonical && hasOwn(storedCanonicalRaw, "applications") ? canonicalFromStorage.applications : [],
-      legacyCanonical.applications
-    );
-
-    const mergedAutofillAnswers =
-      legacyCanonical.autofillAnswers.length > 0
-        ? legacyCanonical.autofillAnswers
-        : (hasStoredCanonical && hasOwn(storedCanonicalRaw, "autofillAnswers")
-          ? canonicalFromStorage.autofillAnswers
-          : legacyCanonical.autofillAnswers);
-
-    const canonical = normalizeCanonicalAppData({
-      profile: hasMeaningfulProfile(legacyCanonical.profile)
-        ? legacyCanonical.profile
-        : (hasStoredCanonical && hasOwn(storedCanonicalRaw, "profile")
-          ? canonicalFromStorage.profile
-          : legacyCanonical.profile),
-      resume: hasMeaningfulResume(legacyCanonical.resume)
-        ? legacyCanonical.resume
-        : (hasStoredCanonical && hasOwn(storedCanonicalRaw, "resume")
-          ? canonicalFromStorage.resume
-          : legacyCanonical.resume),
-      activeResumeLanguage: legacyCanonical.activeResumeLanguage || (hasStoredCanonical ? canonicalFromStorage.activeResumeLanguage : "en"),
-      resumes: isObject(legacyCanonical.resumes) && Object.keys(legacyCanonical.resumes).length
-        ? legacyCanonical.resumes
-        : (hasStoredCanonical && hasOwn(storedCanonicalRaw, "resumes") ? canonicalFromStorage.resumes : {}),
-      jobs: mergedJobs,
-      applications: mergedApplications,
-      autofillAnswers: mergedAutofillAnswers,
-      settings: {
-        ...(legacyCanonical.settings || {}),
-        ...(hasStoredCanonical && hasOwn(storedCanonicalRaw, "settings") ? canonicalFromStorage.settings : {}),
-        ...(isObject(storedSettings) ? storedSettings : {})
-      }
-    });
-
-    if (!canonical.jobs.length && isObject(currentJob)) {
-      canonical.jobs = [normalizeJob(currentJob)];
-    }
-
-    return canonical;
   }
 
   async function saveAppData(data) {
-    const appStore = global.Stage10AppDataStore;
-    const localStore = global.Stage3Storage;
-    const rawInput = isObject(data) ? data : {};
-
-    const currentCanonical = await getAppData();
-    const normalizedInput = normalizeCanonicalAppData(rawInput);
-
-    const hasProfile = Object.prototype.hasOwnProperty.call(rawInput, "profile");
-    const hasResume = Object.prototype.hasOwnProperty.call(rawInput, "resume") || Object.prototype.hasOwnProperty.call(rawInput, "masterResume");
-    const hasDualResumes = Object.prototype.hasOwnProperty.call(rawInput, "resumes") || Object.prototype.hasOwnProperty.call(rawInput, "activeResumeLanguage");
-    const hasJobs = Object.prototype.hasOwnProperty.call(rawInput, "jobs");
-    const hasApplications = Object.prototype.hasOwnProperty.call(rawInput, "applications");
-    const hasAutofillAnswers = Object.prototype.hasOwnProperty.call(rawInput, "autofillAnswers");
-    const hasSettings = Object.prototype.hasOwnProperty.call(rawInput, "settings");
-
-    const mergedCanonical = normalizeCanonicalAppData({
-      profile: hasProfile ? normalizedInput.profile : currentCanonical.profile,
-      resume: hasResume ? normalizedInput.resume : currentCanonical.resume,
-      activeResumeLanguage: hasDualResumes ? normalizedInput.activeResumeLanguage : currentCanonical.activeResumeLanguage,
-      resumes: hasDualResumes ? normalizedInput.resumes : currentCanonical.resumes,
-      jobs: hasJobs ? normalizedInput.jobs : currentCanonical.jobs,
-      applications: hasApplications ? normalizedInput.applications : currentCanonical.applications,
-      autofillAnswers: hasAutofillAnswers ? normalizedInput.autofillAnswers : currentCanonical.autofillAnswers,
-      settings: hasSettings
-        ? {
-            ...(isObject(currentCanonical.settings) ? currentCanonical.settings : {}),
-            ...(isObject(normalizedInput.settings) ? normalizedInput.settings : {})
-          }
-        : currentCanonical.settings
+    const raw = isObject(data) ? data : {};
+    const current = await getAppData();
+    const merged = normalizeCanonicalAppData({
+      ...current,
+      ...raw,
+      resume: hasOwn(raw, "masterResume") ? raw.masterResume : (hasOwn(raw, "resume") ? raw.resume : current.resume),
+      settings: { ...current.settings, ...(raw.settings || {}) }
     });
-
-    await saveCanonicalDataToStorage(mergedCanonical);
-
-    if (appStore && typeof appStore.getAppData === "function" && typeof appStore.saveAppData === "function") {
+    await saveCanonicalDataToStorage(merged);
+    const appStore = global.Stage10AppDataStore;
+    if (appStore) {
       const currentRaw = await appStore.getAppData();
-      const currentRawApplications = ensureArray(currentRaw && currentRaw.applications);
-      const currentRawApplicationsById = new Map();
+      await appStore.saveAppData({ ...currentRaw, ...merged, masterResume: merged.resume });
+    }
+    const localStore = global.Stage3Storage;
+    if (localStore && hasOwn(raw, "settings")) await localStore.setSettings(merged.settings);
+    return merged;
+  }
 
-      currentRawApplications.forEach((item) => {
-        const safe = isObject(item) ? item : {};
-        const key = firstNonEmpty([safe.applicationId, safe.id]);
-        if (key && !currentRawApplicationsById.has(key)) {
-          currentRawApplicationsById.set(key, safe);
-        }
+  async function getLegacyApplications() {
+    const area = getChromeStorageArea();
+    if (!area) return [];
+    const stored = await new Promise((resolve, reject) => {
+      area.get([LEGACY_CANONICAL_DATA_KEY, "appDataV1", "applicationRecords"], (value) => {
+        if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
+        else resolve(value || {});
       });
-
-      const nextRaw = {
-        ...(isObject(currentRaw) ? currentRaw : {}),
-        activeResumeLanguage: mergedCanonical.activeResumeLanguage,
-        resumes: mergedCanonical.resumes,
-        profile: mergedCanonical.profile,
-        masterResume: mergedCanonical.resume,
-        resume: mergedCanonical.resume,
-        applications: mergedCanonical.applications.map((item) => {
-          const key = cleanString(item && item.applicationId);
-          const fallback = key ? currentRawApplicationsById.get(key) : null;
-          return toLegacyApplicationShape(item, fallback);
-        }),
-        autofillAnswers: mergedCanonical.autofillAnswers,
-        settings: {
-          ...(isObject(currentRaw && currentRaw.settings) ? currentRaw.settings : {}),
-          ...(isObject(mergedCanonical.settings) ? mergedCanonical.settings : {})
-        }
-      };
-
-      if (hasJobs) {
-        nextRaw.jobs = mergedCanonical.jobs;
+    });
+    const canonical = ensureArray(stored[LEGACY_CANONICAL_DATA_KEY] && stored[LEGACY_CANONICAL_DATA_KEY].applications);
+    const appData = ensureArray(stored.appDataV1 && stored.appDataV1.applications);
+    const records = ensureArray(stored.applicationRecords).slice().sort((left, right) =>
+      String(right.updatedAt || right.createdAt || "").localeCompare(String(left.updatedAt || left.createdAt || "")));
+    const output = [];
+    for (const record of canonical.concat(appData, records)) {
+      const id = cleanString(record.applicationId || record.id);
+      const url = normalizeComparableUrl(record.jobUrl || record.url);
+      const existing = output.find(item =>
+        (id && id === cleanString(item.applicationId || item.id)) ||
+        (url && url === normalizeComparableUrl(item.jobUrl || item.url)));
+      if (!existing) { output.push({ ...record }); continue; }
+      for (const [key, value] of Object.entries(record)) {
+        if (existing[key] === undefined || existing[key] === "" ||
+            (Array.isArray(existing[key]) && existing[key].length === 0)) existing[key] = value;
       }
-
-      await appStore.saveAppData(nextRaw);
     }
-
-    if (localStore && typeof localStore.setSettings === "function" && hasSettings) {
-      await localStore.setSettings(mergedCanonical.settings);
-    }
-
-    if (localStore && typeof localStore.setJobData === "function" && hasJobs && mergedCanonical.jobs.length) {
-      await localStore.setJobData(toLegacyJobShape(mergedCanonical.jobs[0], null));
-    }
-
-    return mergedCanonical;
+    return output;
   }
 
   async function resetProfileResumeData() {
@@ -940,12 +425,11 @@
   }
 
   const api = Object.freeze({
-    VALID_APPLICATION_STATUSES: VALID_APPLICATION_STATUSES,
     getAppData: getAppData,
+    getLegacyApplications: getLegacyApplications,
     saveAppData: saveAppData,
     resetProfileResumeData: resetProfileResumeData,
     normalizeJob: normalizeJob,
-    normalizeApplication: normalizeApplication,
     validateProfileResumeComplete: validateProfileResumeComplete,
     validateCurrentJob: validateCurrentJob,
     validateApiSettings: validateApiSettings,

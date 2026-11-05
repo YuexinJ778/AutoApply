@@ -20,39 +20,20 @@
         <button class="tab-btn" data-tab="profile-resume">Profile</button>
         <button class="tab-btn" data-tab="test">Test</button>
         <button class="tab-btn" data-tab="autofill">AutoFill Answers</button>
-        <button class="tab-btn" data-tab="applications">Applications</button>
-        <button class="tab-btn" data-tab="notes">Notes</button>
+        <button id="open-tracker-dashboard-btn" class="tab-btn" type="button">Applications ↗ Tracker Dashboard</button>
+        <button class="tab-btn" data-tab="notes">Tracker</button>
         <button class="tab-btn" data-tab="settings">Settings</button>
       </nav>
+      <p id="tracker-status" class="helper-text" role="status" hidden></p>
 
       <section id="view-dashboard" class="view-section">
         <h2>Dashboard</h2>
         <div class="stats-grid">
-          <article class="stat-card">
-            <h3>Total Applications</h3>
-            <p id="dashboard-stat-total" class="stat-value">0</p>
-          </article>
-          <article class="stat-card">
-            <h3>Saved</h3>
-            <p id="dashboard-stat-saved" class="stat-value">0</p>
-          </article>
-          <article class="stat-card">
-            <h3>Applied</h3>
-            <p id="dashboard-stat-applied" class="stat-value">0</p>
-          </article>
-          <article class="stat-card">
-            <h3>Interview</h3>
-            <p id="dashboard-stat-interview" class="stat-value">0</p>
-          </article>
-          <article class="stat-card">
-            <h3>Offer</h3>
-            <p id="dashboard-stat-offer" class="stat-value">0</p>
-          </article>
-          <article class="stat-card">
-            <h3>Rejected</h3>
-            <p id="dashboard-stat-rejected" class="stat-value">0</p>
-          </article>
+          <article class="stat-card"><h3>Offers</h3><p id="dashboard-stat-offer" class="stat-value">—</p></article>
+          <article class="stat-card"><h3>Rejected</h3><p id="dashboard-stat-rejected" class="stat-value">—</p></article>
+          <article class="stat-card"><h3>Pending</h3><p id="dashboard-stat-pending" class="stat-value">—</p></article>
         </div>
+        <button id="tracker-dashboard-refresh-btn" type="button" class="secondary-btn">Refresh Tracker</button>
       </section>
 
       <!-- Profile & Resume: split-view builder -->
@@ -63,13 +44,6 @@
           <div class="app-mode-btn-row">
             <button id="upload-resume-profile-top-btn" type="button" class="secondary-btn small-btn">Upload Resume</button>
             <button id="save-profile-resume-top-btn" type="button" class="primary-btn small-btn">Save</button>
-          </div>
-        </div>
-
-        <div id="app-mode-top-bar" class="app-mode-top-bar" hidden>
-          <div class="app-mode-btn-row">
-            <button id="back-to-applications-btn" type="button" class="secondary-btn small-btn">Back to Applications</button>
-            <button id="save-app-resume-top-btn" type="button" class="primary-btn small-btn">Save</button>
           </div>
         </div>
 
@@ -223,99 +197,49 @@
         </article>
       </section>
 
-      <section id="view-applications" class="view-section hidden">
-        <h2>Applications</h2>
-        <div class="toolbar-row applications-toolbar">
-          <label>Search
-            <input id="applications-search" type="text" placeholder="Search company, title, or location" />
-          </label>
-          <label>Status Filter
-            <select id="applications-filter">
-              <option value="all">All</option>
-              <option value="Saved">Saved</option>
-              <option value="Applied">Applied</option>
-              <option value="Interview">Interview</option>
-              <option value="Offer">Offer</option>
-              <option value="Rejected">Rejected</option>
-              <option value="Withdrawn">Withdrawn</option>
-            </select>
-          </label>
-          <label>Sort by date
-            <select id="applications-sort">
-              <option value="newest">Newest first</option>
-              <option value="oldest">Oldest first</option>
-            </select>
-          </label>
-        </div>
-
-        <div class="applications-table-wrap">
-          <table class="applications-table">
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>Job Title</th>
-                <th>Status</th>
-                <th>Location</th>
-                <th>Saved Date</th>
-                <th>Applied Date</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="applications-table-body"></tbody>
-          </table>
-        </div>
-      </section>
-
       <section id="view-notes" class="view-section hidden">
         <div class="notes-page-header">
-          <div>
-            <h2>Notes</h2>
-            <p>Review notes from all saved applications and ask AI about them.</p>
-          </div>
+          <h2>Tracker</h2>
+          <p>Edit shared Markdown notes, ask questions across your jobs, or request Tracker changes.</p>
         </div>
         <div class="notes-page-grid">
           <section class="notes-page-panel">
-            <div class="notes-page-panel-header">
-              <h3>All Application Notes</h3>
+            <label>Job<select id="tracker-notes-job"></select></label>
+            <div class="button-row">
+              <button id="tracker-notes-refresh-btn" type="button" class="secondary-btn">Refresh Tracker</button>
+              <button id="tracker-notes-save-btn" type="button" class="primary-btn" disabled>Save Notes</button>
             </div>
-            <div class="notes-page-filters">
-              <label>Search
-                <input id="global-notes-search" type="text" placeholder="Search notes..." />
-              </label>
-              <label>Company
-                <select id="global-notes-company-filter">
-                  <option value="all">All Companies</option>
-                </select>
-              </label>
-              <label>Status
-                <select id="global-notes-status-filter">
-                  <option value="all">All Statuses</option>
-                </select>
-              </label>
-            </div>
-            <div id="global-notes-list" class="global-notes-list"></div>
+            <label>Markdown notes<textarea id="tracker-notes-editor" rows="16" disabled></textarea></label>
           </section>
-
           <section class="notes-page-panel notes-ai-panel">
             <div class="notes-page-panel-header">
-              <h3>AI Notes Assistant</h3>
-              <div class="notes-ai-header-actions">
-                <button id="notes-ai-export-btn" type="button" class="secondary-btn small-btn">Export</button>
-                <button id="notes-ai-clear-btn" type="button" class="secondary-btn small-btn danger-btn">Clear</button>
-              </div>
+              <h3>Tracker Assistant</h3>
+              <button id="notes-ai-clear-btn" type="button" class="secondary-btn small-btn">Clear Chat</button>
             </div>
+            <p class="helper-text">Chat stays in this tab only. Save replies to the selected job's notes before closing.</p>
             <div id="notes-ai-messages" class="notes-ai-messages"></div>
-            <div id="notes-ai-empty-hint" class="notes-ai-empty-hint hidden">No notes are available yet. Add notes from an application first.</div>
             <div class="notes-ai-input-row">
-              <textarea id="notes-ai-input" class="notes-ai-input" rows="3" placeholder="Ask about your application notes..."></textarea>
+              <textarea id="notes-ai-input" class="notes-ai-input" rows="3" placeholder="Ask about your notes, change a status, or add a reminder..."></textarea>
               <button id="notes-ai-send-btn" type="button" class="primary-btn notes-ai-send-btn">Send</button>
             </div>
+            <button id="notes-ai-save-btn" type="button" class="secondary-btn" disabled>Save latest reply to selected job</button>
           </section>
         </div>
       </section>
 
       <section id="view-settings" class="view-section hidden">
         <h2>Settings</h2>
+        <article class="card">
+          <h3>Local Tracker</h3>
+          <label>Tracker URL<input id="tracker-url" type="url" value="http://127.0.0.1:8765" /></label>
+          <label>Tracker token<input id="tracker-token" type="password" autocomplete="off" placeholder="Copy from dashboard Settings → Local API" /></label>
+          <p class="settings-card-description">Start the local service and open its dashboard before connecting. Copy the token from Settings → Local API.</p>
+          <div class="button-row">
+            <button id="tracker-save-btn" type="button" class="primary-btn">Save Tracker Settings</button>
+            <button id="tracker-test-btn" type="button" class="secondary-btn">Test tracker connection</button>
+            <button id="tracker-import-btn" type="button" class="secondary-btn">Import existing applications into Tracker</button>
+          </div>
+        </article>
         <article class="card">
           <h3>Model Settings</h3>
           <label>Provider
@@ -343,7 +267,7 @@
 
         <article class="card">
           <h3>Profile Data</h3>
-          <p class="settings-card-description">Reset the saved Profile data stored on this device. This will not delete applications or application-specific resumes.</p>
+          <p class="settings-card-description">Reset the saved Profile data stored on this device. Tracker applications and notes are unchanged.</p>
           <button id="reset-profile-resume-btn" type="button" class="secondary-btn danger-btn">Reset Profile</button>
         </article>
 
@@ -351,76 +275,8 @@
 
       <footer class="status-bar">
         <span id="status-left">Ready.</span>
-        <span id="status-right">Storage: appDataV1</span>
+        <span id="status-right">Profile: local · Applications and notes: Tracker</span>
       </footer>
-
-      <!-- Application Notes Modal -->
-      <div id="notes-modal-overlay" class="notes-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="notes-modal-title">
-        <div class="notes-modal">
-          <div class="notes-modal-header">
-            <div>
-              <h2 id="notes-modal-title" class="notes-modal-title">Application Notes</h2>
-              <p id="notes-modal-subtitle" class="notes-modal-subtitle"></p>
-            </div>
-            <button id="notes-modal-close-btn" type="button" class="notes-modal-close-btn" aria-label="Close">&#x2715;</button>
-          </div>
-          <div class="notes-modal-body">
-            <div class="notes-list-panel">
-              <div class="notes-list-header">
-                <span class="notes-list-heading">Notes</span>
-                <button id="notes-new-btn" type="button" class="secondary-btn small-btn">+ New Note</button>
-              </div>
-              <input id="notes-search-input" type="text" class="notes-search-input" placeholder="Search notes..." aria-label="Search notes" />
-              <div id="notes-list-items" class="notes-list-items"></div>
-            </div>
-            <div class="notes-editor-panel">
-              <div class="notes-editor-header">
-                <div class="notes-editor-title-group">
-                  <span class="notes-editor-heading">NOTE EDITOR</span>
-                  <div class="notes-mode-switch" role="group" aria-label="Note editor mode">
-                    <button id="notes-mode-write-btn" type="button" class="notes-mode-btn is-active" data-action="notes-mode-write">Write</button>
-                    <button id="notes-mode-preview-btn" type="button" class="notes-mode-btn" data-action="notes-mode-preview">Preview</button>
-                  </div>
-                </div>
-                <div class="notes-editor-actions">
-                  <button id="notes-save-btn" type="button" class="primary-btn small-btn" disabled>Save Note</button>
-                  <button id="notes-delete-btn" type="button" class="secondary-btn small-btn danger-btn" disabled>Delete Note</button>
-                </div>
-              </div>
-              <div id="notes-editor-content" class="notes-editor-content"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div id="notes-ai-export-modal-overlay" class="notes-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="notes-ai-export-modal-title">
-        <div class="notes-modal notes-ai-export-modal">
-          <div class="notes-modal-header">
-            <div>
-              <h2 id="notes-ai-export-modal-title" class="notes-modal-title">Export AI Notes Assistant</h2>
-              <p class="notes-modal-subtitle">Save this conversation as an application note.</p>
-            </div>
-            <button id="notes-ai-export-close-btn" type="button" class="notes-modal-close-btn" aria-label="Close">&#x2715;</button>
-          </div>
-          <div class="notes-modal-body notes-ai-export-body">
-            <label class="notes-field-label">Note Time
-              <input id="notes-ai-export-time-input" type="date" class="notes-date-input" />
-            </label>
-            <label class="notes-field-label">Note Name
-              <input id="notes-ai-export-name-input" type="text" class="notes-title-input" />
-            </label>
-            <label class="notes-field-label">Target Application / Job
-              <select id="notes-ai-export-application-select" class="notes-title-input"></select>
-            </label>
-            <div id="notes-ai-export-empty-msg" class="notes-validation-msg hidden">No saved applications or jobs are available. Save an application first.</div>
-            <div id="notes-ai-export-validation-msg" class="notes-validation-msg"></div>
-            <div class="notes-editor-actions">
-              <button id="notes-ai-export-submit-btn" type="button" class="primary-btn small-btn">Export Note</button>
-              <button id="notes-ai-export-cancel-btn" type="button" class="secondary-btn small-btn">Cancel</button>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <div id="upload-resume-modal-overlay" class="upload-resume-modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="upload-resume-modal-title">
         <div class="upload-resume-modal">
@@ -519,6 +375,8 @@
     <script src="../lib/render/resumePdfBuilder.js"></script>
     <script src="../lib/render/resumeA4Template.js"></script>
     <script src="../lib/render/artifactWriter.js"></script>
+    <script src="../lib/trackerClient.js"></script>
+    <script src="trackerFunctions.js"></script>
     <script src="../lib/api.js"></script>
     <script src="../storage/localStore.js"></script>
     <script src="../storage/appDataStore.js"></script>

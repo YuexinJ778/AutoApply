@@ -1,4 +1,4 @@
-# Local tracker API (M1.1)
+# Local tracker API
 
 From the repository root, install and start the dashboard:
 
@@ -16,26 +16,29 @@ All data routes require `Authorization: Bearer <token>`. Only
 `GET /api/health` is public and returns `{ "ok": true, "version": "0.1.0" }`.
 API responses omit saved `account` and `password` fields. The API has no CORS or
 Host middleware and adds no upload size limit; storage performs PDF validation.
-M2's client must run in background, popup, or options. A content script must
-send a runtime message to background for tracker operations.
+The extension client runs in background, popup, or options. A content script
+sends a runtime message to background for tracker operations. See
+[extension setup and validation](tracker-extension.md).
 
 ## Contract
 
 | Method | Path | Request / response |
 | --- | --- | --- |
 | GET | `/api/statuses` | Returns the configured status records (`id`, `label`, etc.). |
+| GET | `/api/summary` | Returns `offer`, `rejected` and `pending` counts from the dashboard’s `calculate_summary_counts`, excluding archived jobs and respecting configured status groups. |
 | GET | `/api/jobs` | Returns jobs; optional `?url=` matches normalized URLs. |
 | POST | `/api/jobs` | JSON `company`, `job_title`, `job_url`; optional `location`, `email`, `applied_date`, `autofill_stats`. Finds the normalized URL and returns the existing job unchanged, or creates a new job with `source="extension"` and `status_id="planning"`. A supplied `status_id` is ignored. All updates use PATCH. |
 | PATCH | `/api/jobs/{id}` | JSON containing any of `status_id`, `applied_date`, `autofill_stats`; returns the updated job. |
 | POST | `/api/jobs/{id}/resumes` | Multipart `file`, optional `label`; returns PDF version metadata with `source="extension"`. |
 | GET / PUT | `/api/jobs/{id}/notes` | Returns / accepts `{ "notes": "Markdown text" }`, using the dashboard's `notes.md`. |
+| POST | `/api/actions` | `{ "functionCalls": [{ "name": "setJobStatus", "args": { "company": "Example Labs", "status": "interviewing" } }], "timezone": "America/Indianapolis" }`; executes a validated tracker batch. See below. |
 | POST | `/api/import` | `{ "jobs": [legacy extension records] }`; returns the imported/existing jobs. |
 
 Use server status **IDs**, such as `planning`, `applied`, and `interviewing`.
 Dates use `YYYY-MM-DD`. Autofill statistics are
 `{ "filled": 9, "detected": 10, "recorded_at": "2026-11-05T17:00:00Z" }`.
-Recording autofill statistics does not change status. Submission confirmation
-will be wired to a user action in M2.
+Recording autofill statistics does not change status. The popup records
+submission only when the user clicks **I have submitted**.
 
 URL identity ignores fragments, default ports, trailing slashes, and known
 tracking query parameters; meaningful job identifiers remain. Repeated imports
@@ -57,6 +60,18 @@ storage values return 422. Storage errors retain their original message in
 example `Record 3: job_url must be an HTTP URL.` The whole batch is validated
 before writing. Request shape errors use FastAPI's standard validation response.
 No LLM calls run on the server.
+
+## Tracker action batches
+
+`POST /api/actions` accepts at most ten calls from the five [tracker operations](tools.md#tracker-tools-5). The server matches unarchived jobs by company and optional job title, ignoring surrounding whitespace and case. It resolves all targets and validates all values under the existing storage lock before executing writes.
+
+Success returns `{ "ok": true, "results": [...] }`. Each result contains `name` and the resulting public `job`; reminder operations also contain `reminder`. A missing target returns HTTP 200 with `{ "ok": false, "code": "NOT_FOUND", "error": "..." }`. Multiple matches return `AMBIGUOUS`, with job candidates when relevant. These resolution failures do not execute any operation. Unknown operations, invalid arguments, dates, status values or reminders return the existing 422 `detail` error.
+
+`setJobStatus` accepts a configured status ID or label; the server uses its current status list. `addJobNote` appends Markdown without replacing existing notes. `completeReminder` prefers a uniquely matching scheduled reminder, or accepts a uniquely matching completed reminder as an unchanged result. Cancelled reminders are excluded. Duplicate eligible titles require the user to choose by date in the dashboard.
+
+For `addReminder`, `datetime` is an ISO local date/time, for example `2026-11-12T10:00:00`. The request's `timezone` is the browser's IANA zone. The server uses the existing calendar functions to resolve a local time and reject DST gaps or unconfirmed repeated times. If an offset is supplied, it must match that zone on the requested date. The stored reminder uses the existing `start_at`, `timezone` and validation rules.
+
+Operations execute sequentially through existing storage functions. Completed file writes are not rolled back if a later disk write fails; a transport or storage failure is reported as an error, without claiming that no writes occurred. No LLM runs on the server.
 
 ## Verify
 

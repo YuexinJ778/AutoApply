@@ -624,7 +624,7 @@
 
     while (current && current !== document.body && current !== document.documentElement) {
       const currentId = cleanString(current.id);
-      if (currentId) {
+      if (currentId && isUniqueSelector(current.tagName.toLowerCase() + "#" + escapeCssIdentifier(currentId))) {
         segments.unshift(current.tagName.toLowerCase() + "#" + escapeCssIdentifier(currentId));
         return segments.join(" > ");
       }
@@ -643,7 +643,7 @@
   function buildStableSelector(field) {
     const tag = field.tagName.toLowerCase();
     const id = cleanString(field.id);
-    if (id) {
+    if (id && isUniqueSelector(tag + "#" + escapeCssIdentifier(id))) {
       return tag + "#" + escapeCssIdentifier(id);
     }
 
@@ -1249,14 +1249,6 @@
   }
 
   function resolveFieldElement(field) {
-    const id = cleanString(field.id);
-    if (id) {
-      const byId = document.getElementById(id);
-      if (byId) {
-        return byId;
-      }
-    }
-
     const selector = cleanString(field.selector);
     if (selector) {
       try {
@@ -1266,6 +1258,14 @@
         }
       } catch {
         // ignore invalid selector
+      }
+    }
+
+    const id = cleanString(field.id);
+    if (id) {
+      const byId = document.getElementById(id);
+      if (byId) {
+        return byId;
       }
     }
 
@@ -1382,6 +1382,7 @@
           fieldId: field.id,
           fieldLabel: field.label,
           status: "filled",
+          fieldSelector: field.selector,
           value: mapping.mappedValue,
           valuePreview: toValuePreview(mapping.mappedValue)
         };
@@ -1520,6 +1521,7 @@
           fieldId: field.id,
           fieldLabel: field.label,
           status: "filled",
+          fieldSelector: field.selector,
           value: cleanString(selected.textContent) || selected.value,
           valuePreview: toValuePreview(cleanString(selected.textContent) || selected.value)
         };
@@ -1615,6 +1617,7 @@
           fieldId: field.id,
           fieldLabel: field.label,
           status: "filled",
+          fieldSelector: field.selector,
           value: shouldCheck ? "checked" : "unchecked",
           valuePreview: shouldCheck ? "checked" : "unchecked"
         };
@@ -2068,19 +2071,6 @@
     return cleanString(window.location && window.location.href) || undefined;
   }
 
-  function getSourceSite(jobUrl) {
-    const url = cleanString(jobUrl);
-    if (!url) {
-      return "unknown";
-    }
-
-    try {
-      return new URL(url).hostname.toLowerCase() || "unknown";
-    } catch {
-      return "unknown";
-    }
-  }
-
   function parseTitleMetadata() {
     const title = cleanString(document.title);
     if (!title) {
@@ -2108,39 +2098,6 @@
     };
   }
 
-  function deriveApplicationId() {
-    return "app-" + String(Date.now()) + "-" + Math.random().toString(36).slice(2, 8);
-  }
-
-  function deriveJobId(jobUrl, resumeRecord) {
-    const fromResume = cleanString(resumeRecord && resumeRecord.jobId);
-    if (fromResume) {
-      return fromResume;
-    }
-
-    const url = cleanString(jobUrl);
-    if (!url) {
-      return undefined;
-    }
-
-    try {
-      const parsed = new URL(url);
-      const queryKeys = ["jobId", "job_id", "jid", "gh_jid", "id"];
-
-      for (let index = 0; index < queryKeys.length; index += 1) {
-        const value = cleanString(parsed.searchParams.get(queryKeys[index]));
-        if (value) {
-          return value;
-        }
-      }
-
-      const segments = parsed.pathname.split("/").map(cleanString).filter(Boolean);
-      return segments[segments.length - 1] || undefined;
-    } catch {
-      return undefined;
-    }
-  }
-
   function deriveStatus(fillResults, uploadResult, preSubmitCheck) {
     const canSubmit = Boolean(preSubmitCheck && (preSubmitCheck.canSubmit !== undefined ? preSubmitCheck.canSubmit : preSubmitCheck.ok));
     const filledCount = fillResults.filter(function filterFilled(item) { return item.status === "filled"; }).length;
@@ -2163,64 +2120,14 @@
     return "draft_prepared";
   }
 
-  function buildApplicationRecord(input) {
-    const jobUrl = cleanString(input.jobUrl);
-    const createdAt = new Date().toISOString();
-    const uploadResult = input.uploadResult || {};
-    const resumeRecord = input.resumeRecord || null;
-
-    return {
-      applicationId: deriveApplicationId(),
-      jobId: deriveJobId(jobUrl, resumeRecord),
-      resumeId: cleanString(uploadResult.resumeId) || cleanString(resumeRecord && resumeRecord.resumeId) || undefined,
-      resumeVersionId: cleanString(resumeRecord && resumeRecord.versionId) || undefined,
-      company: cleanString(input.company) || cleanString(resumeRecord && resumeRecord.company) || undefined,
-      role: cleanString(input.role) || cleanString(resumeRecord && resumeRecord.role) || undefined,
-      createdAt: createdAt,
-      updatedAt: createdAt,
-      jobUrl: jobUrl || undefined,
-      sourceSite: cleanString(input.sourceSite) || "unknown",
-      status: deriveStatus(input.fillResults || [], uploadResult, input.preSubmitCheck || {}),
-      mode: PIPELINE_MODE,
-      formFieldCount: Array.isArray(input.formFields) ? input.formFields.length : 0,
-      filledFieldCount: Array.isArray(input.fillResults)
-        ? input.fillResults.filter(function filterFilled(item) { return item.status === "filled"; }).length
-        : 0,
-      preSubmitCheck: input.preSubmitCheck || {
-        ok: false,
-        canSubmit: false,
-        missingRequiredFields: [],
-        unknownRequiredFields: [],
-        pageValidationErrors: [],
-        warnings: []
-      }
-    };
-  }
-
-  async function getResumeRecordById(resumeId) {
-    const registry = global.Stage6ResumeRegistryStorage;
-    if (!registry) {
-      return null;
-    }
-
-    const id = cleanString(resumeId);
-    if (id && typeof registry.getCompiledResumeById === "function") {
-      try {
-        return await registry.getCompiledResumeById(id);
-      } catch {
-        return null;
-      }
-    }
-
-    if (typeof registry.getLatestCompiledResumeRecord === "function") {
-      try {
-        return await registry.getLatestCompiledResumeRecord();
-      } catch {
-        return null;
-      }
-    }
-
-    return null;
+  function countAutofillStats(formFields, fillResults) {
+    const detected = new Set(formFields.map(function scannedSelector(field) {
+      return cleanString(field.selector);
+    }).filter(Boolean));
+    const filled = new Set(fillResults.filter(function successfulScannedFill(result) {
+      return result.status === "filled" && detected.has(result.fieldSelector);
+    }).map(function filledSelector(result) { return result.fieldSelector; }));
+    return { formFieldCount: detected.size, filledFieldCount: filled.size };
   }
 
   function createResultSummary(input) {
@@ -2242,10 +2149,8 @@
     return {
       ok: ok,
       mode: PIPELINE_MODE,
-      applicationId: input.applicationId,
       status: input.status,
       resumeId: input.resumeId,
-      jobId: input.jobId,
       scannedFieldCount: scannedFieldCount,
       mappedFieldCount: mappedFieldCount,
       filledFieldCount: filledFieldCount,
@@ -2278,14 +2183,8 @@
         unknownRequiredFields: (input.preSubmitCheck && input.preSubmitCheck.unknownRequiredFields) || [],
         pageValidationErrors: (input.preSubmitCheck && input.preSubmitCheck.pageValidationErrors) || []
       },
-      pendingApplicationRecord: input.pendingApplicationRecord || null,
-      recordSummary: {
-        saved: Boolean(input.recordSaved),
-        pendingConfirmation: Boolean(input.pendingApplicationRecord),
-        applicationId: input.applicationId,
-        status: input.status,
-        errorMessage: cleanString(input.recordError) || undefined
-      },
+      autofillStats: input.autofillStats,
+      trackerContext: input.trackerContext,
       fillResults: input.fillResults || [],
       message:
         "prepare-only pipeline complete: status=" + cleanString(input.status) +
@@ -2334,8 +2233,6 @@
     let uploadResult;
     let preSubmitCheck;
 
-    let applicationRecord = null;
-    let savedRecord = null;
     let pageLanguage = "unknown";
 
     try {
@@ -2548,34 +2445,12 @@
       errors.push("validateApplication failed: " + (error instanceof Error ? error.message : String(error)));
     }
 
-    try {
-      const titleMetadata = parseTitleMetadata();
-      const jobUrl = getCurrentJobUrl();
-      const sourceSite = getSourceSite(jobUrl);
-      const resumeRecord = await getResumeRecordById(uploadResult.resumeId);
-
-      applicationRecord = buildApplicationRecord({
-        jobUrl: jobUrl,
-        sourceSite: sourceSite,
-        company: titleMetadata.company,
-        role: titleMetadata.role,
-        resumeRecord: resumeRecord,
-        uploadResult: uploadResult,
-        formFields: formFields,
-        fillResults: fillResults,
-        preSubmitCheck: preSubmitCheck
-      });
-
-      debugLog("application record pending confirmation", {
-        applicationId: applicationRecord.applicationId,
-        status: applicationRecord.status,
-        jobUrl: applicationRecord.jobUrl || "",
-        resumeId: applicationRecord.resumeId || ""
-      });
-    } catch (error) {
-      const recordError = error instanceof Error ? error.message : String(error);
-      errors.push("buildApplicationRecord failed: " + recordError);
-    }
+    const titleMetadata = parseTitleMetadata();
+    const trackerContext = {
+      company: titleMetadata.company,
+      job_title: titleMetadata.role,
+      job_url: getCurrentJobUrl()
+    };
 
     const scannedFieldCount = formFields.length;
     const mappedFieldCount = mappings.filter(function filterMapped(item) { return item.status === "matched"; }).length;
@@ -2602,18 +2477,8 @@
       errors.push("no effective fill and upload failed");
     }
 
-    const finalRecord = savedRecord || applicationRecord;
-    const canSubmit = Boolean(preSubmitCheck.canSubmit !== undefined ? preSubmitCheck.canSubmit : preSubmitCheck.ok);
     const hasFatal = !hasProfile || scannedFieldCount === 0 || (!hasEffectiveFill && !uploadSucceeded);
-    const finalStatus = hasFatal
-      ? "failed"
-      : finalRecord && cleanString(finalRecord.status)
-        ? finalRecord.status
-        : canSubmit
-          ? "ready_to_submit"
-          : errors.length > 0
-            ? "failed"
-            : "draft_prepared";
+    const finalStatus = hasFatal ? "failed" : deriveStatus(fillResults, uploadResult, preSubmitCheck);
     const ok = finalStatus !== "failed";
 
     debugLog("final status", {
@@ -2678,10 +2543,8 @@
 
     return createResultSummary({
       ok: ok,
-      applicationId: finalRecord && finalRecord.applicationId,
       status: finalStatus,
-      resumeId: (finalRecord && finalRecord.resumeId) || uploadResult.resumeId,
-      jobId: finalRecord && finalRecord.jobId,
+      resumeId: uploadResult.resumeId,
       scannedFieldCount: scannedFieldCount,
       mappedFieldCount: mappedFieldCount,
       filledFieldCount: filledFieldCount,
@@ -2698,9 +2561,8 @@
       preSubmitCheck: preSubmitCheck,
       uploadResult: uploadResult,
       fillResults: fillResults,
-      recordSaved: false,
-      recordError: "",
-      pendingApplicationRecord: applicationRecord
+      autofillStats: countAutofillStats(formFields, fillResults),
+      trackerContext: trackerContext
     });
   }
 
@@ -2716,6 +2578,8 @@
   }
 
   global.Stage6ApplyRuntime = Object.freeze({
+    getFieldSelector: buildStableSelector,
+    countAutofillStats: countAutofillStats,
     runPrepareOnlyApplyFlow: runPrepareOnlyApplyFlow,
     runApplyDebug: runApplyDebug,
     dumpApplyDebugState: dumpApplyDebugState

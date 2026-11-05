@@ -1,7 +1,9 @@
 (function attachStage10AppDataStore(global) {
   "use strict";
 
-  const APP_DATA_KEY = "appDataV1";
+  const APP_DATA_KEY = "profileDataV2";
+  const LEGACY_APP_DATA_KEY = "appDataV1";
+  const LEGACY_CANONICAL_DATA_KEY = "stage11CanonicalAppDataV1";
   const PROFILE_RESUME_RESET_VERSION = "2026-04-27-clean-profile-resume";
 
   function cleanString(value) {
@@ -311,7 +313,6 @@
       masterResume: createDefaultMasterResume(),
       autofillAnswers: [],
       generatedResumes: [],
-      applications: [],
       settings: {
         defaultModel: "",
         defaultResumeStyle: "",
@@ -639,37 +640,6 @@
     };
   }
 
-  function normalizeApplication(input, index) {
-    const raw = input && typeof input === "object" ? input : {};
-    const notes = ensureArray(raw.notes).map(function normalizeNote(item) {
-      const safe = item && typeof item === "object" ? item : {};
-      const contentMarkdown = cleanString(safe.contentMarkdown || safe.content);
-      const nextAction = cleanString(safe.nextAction);
-      return {
-        id: cleanString(safe.id) || createId("note"),
-        date: cleanString(safe.date) || new Date().toISOString().slice(0, 10),
-        title: cleanString(safe.title) || "Untitled Note",
-        contentMarkdown: contentMarkdown || (nextAction ? "## Next Action\n" + nextAction : ""),
-        createdAt: cleanString(safe.createdAt) || new Date().toISOString(),
-        updatedAt: cleanString(safe.updatedAt) || new Date().toISOString()
-      };
-    });
-    return {
-      id: cleanString(raw.id || raw.applicationId) || createId("app" + String(index + 1)),
-      applicationId: cleanString(raw.applicationId || raw.id),
-      company: cleanString(raw.company),
-      role: cleanString(raw.role || raw.jobTitle),
-      jobTitle: cleanString(raw.jobTitle || raw.role),
-      status: cleanString(raw.status) || "saved",
-      jobUrl: cleanString(raw.jobUrl),
-      appliedAt: cleanString(raw.appliedAt || raw.createdAt),
-      resumeId: cleanString(raw.resumeId || raw.resumeVersion || raw.resumeVersionId),
-      resumeDraftId: cleanString(raw.resumeDraftId),
-      resumeDraft: raw.resumeDraft && typeof raw.resumeDraft === "object" ? raw.resumeDraft : null,
-      notes: notes
-    };
-  }
-
   function normalizeRequiredFieldWaivers(input) {
     const safe = input && typeof input === "object" ? input : {};
     const output = {};
@@ -703,10 +673,9 @@
       activeResumeLanguage: dual.activeResumeLanguage,
       resumes: dual.resumes,
       profile: normalizeProfile(raw.profile || defaults.profile),
-      masterResume: normalizeMasterResume(raw.masterResume || defaults.masterResume),
+      masterResume: normalizeMasterResume(raw.masterResume || raw.resume || defaults.masterResume),
       autofillAnswers: ensureArray(raw.autofillAnswers).map(normalizeAutofillAnswer),
       generatedResumes: ensureArray(raw.generatedResumes).map(normalizeGeneratedResume),
-      applications: ensureArray(raw.applications).map(normalizeApplication),
       settings: normalizeSettings(raw.settings || defaults.settings)
     };
   }
@@ -753,8 +722,8 @@
   }
 
   async function getAppData() {
-    const payload = await getLocal([APP_DATA_KEY]);
-    const normalized = normalizeAppData(payload[APP_DATA_KEY]);
+    const payload = await getLocal([APP_DATA_KEY, LEGACY_APP_DATA_KEY, LEGACY_CANONICAL_DATA_KEY]);
+    const normalized = normalizeAppData(payload[APP_DATA_KEY] || payload[LEGACY_APP_DATA_KEY] || payload[LEGACY_CANONICAL_DATA_KEY]);
     if (!payload[APP_DATA_KEY] || cleanString(normalized.settings && normalized.settings.profileResumeDataResetVersion) !== PROFILE_RESUME_RESET_VERSION) {
       normalized.settings = {
         ...normalized.settings,
@@ -860,32 +829,6 @@
       return {
         ...current,
         generatedResumes: ensureArray(current.generatedResumes).concat(record)
-      };
-    });
-  }
-
-  async function upsertApplication(recordInput) {
-    const record = normalizeApplication(recordInput, 0);
-
-    return await updateAppData(function upsertRecord(current) {
-      const list = ensureArray(current.applications).slice();
-      const index = list.findIndex(function match(item) {
-        return cleanString(item.id) === record.id || (
-          cleanString(item.company).toLowerCase() === cleanString(record.company).toLowerCase() &&
-          cleanString(item.role).toLowerCase() === cleanString(record.role).toLowerCase() &&
-          cleanString(item.jobUrl) === cleanString(record.jobUrl)
-        );
-      });
-
-      if (index >= 0) {
-        list[index] = { ...list[index], ...record };
-      } else {
-        list.push(record);
-      }
-
-      return {
-        ...current,
-        applications: list
       };
     });
   }
@@ -1086,7 +1029,6 @@
     normalizeProfile: normalizeProfile,
     normalizeMasterResume: normalizeMasterResume,
     normalizeAutofillAnswer: normalizeAutofillAnswer,
-    normalizeApplication: normalizeApplication,
     normalizeBilingualText: normalizeBilingualText,
     extractEnglish: extractEnglish,
     getAppData: getAppData,
@@ -1097,7 +1039,6 @@
     upsertAutofillAnswer: upsertAutofillAnswer,
     removeAutofillAnswer: removeAutofillAnswer,
     appendGeneratedResume: appendGeneratedResume,
-    upsertApplication: upsertApplication,
     setSettings: setSettings,
     toCandidateResume: toCandidateResume,
     hasCandidateSignal: hasCandidateSignal,

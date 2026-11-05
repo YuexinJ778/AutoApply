@@ -1,14 +1,14 @@
 # AutoApply
 
-AI-assisted resume tailoring and application autofill, with a local Python job tracker, 14 resume tools, 331 Python tests, and 28 extension tests.
+AI-assisted resume tailoring, application autofill and local job tracking, with 19 tools: 14 resume and 5 tracker. Tested with 367 Python tests and 117 extension tests.
 
 [![CI](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml/badge.svg)](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml)
-[![Tests](https://img.shields.io/badge/tests-331_Python_%2B_28_extension-blue)](tests/)
+[![Tests](https://img.shields.io/badge/tests-367_Python_%2B_117_extension-blue)](tests/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 [![Chrome MV3](https://img.shields.io/badge/Chrome-Manifest_V3-blue)](extension/manifest.json)
 [![Python](https://img.shields.io/badge/Python-3.12%2B-blue)](server/requirements.txt)
 
-**Merge progress (M1):** the Python dashboard now starts a local API in the same process. Open **Settings → Local API** for its status and token. Extension integration follows in M2; the demo below shows the earlier workflow. [API contract and checks](docs/local-api.md).
+**Merge progress (M4):** the Tracker assistant can update status and dates, append notes, and create or complete reminders through five validated operations. Applications, notes and dashboard counts use the local tracker API. The demo below shows the earlier workflow. [Tracker setup and validation](docs/tracker-extension.md).
 
 ## Demo
 
@@ -27,8 +27,8 @@ Job applications repeat the same profile entry, resume edits, and status updates
 | **Capture** | Extract visible page text and job metadata; normalize job details from the current tab. |
 | **Tailor** | Edit English or Chinese resumes through 14 local operations; review changes in the A4 preview and retain resume versions. |
 | **Autofill** | Map fields to profile values, reuse confirmed field knowledge, and attach generated resumes on supported forms; include HSBC/SuccessFactors matching rules. |
-| **Track** | Keep application status, notes, and application-specific resume drafts in the extension; use the separate Python tracker for companies, files, calendars, and reminders. |
-| **Prepare** | Generate job summaries, key-skill guidance, and resume suggestions; keep per-application notes with an AI notes assistant. |
+| **Track** | Save jobs, tailored PDF versions, autofill coverage and explicit submission confirmations to the local Python tracker; Applications opens its dashboard. |
+| **Tracker assistant** | Ask about saved notes or request status/date changes, appended notes, and reminders; the server resolves the intended application. |
 
 ## Architecture
 
@@ -46,11 +46,11 @@ flowchart TB
   Console <--> Provider
 ```
 
-The popup captures the active job page through the background worker and content script. The extension sends selected job, resume, or notes context directly to the configured provider and stores the resulting application data locally. The standalone Streamlit job tracker keeps its own files. See [architecture and site-specific matching](docs/architecture.md).
+The popup captures the active job page through the background worker and content script. The extension sends selected job, resume, or notes context directly to the configured provider. Profiles and resume artifacts stay local. Applications and notes use server storage, with legacy extension data read only for import. The popup sends tracking actions to the FastAPI inside the Streamlit process; content scripts forward tracking messages through background. See [architecture and site-specific matching](docs/architecture.md).
 
 ## Agent design
 
-The resume assistant asks the model for a JSON `functionCalls` plan and executes validated local operations. It does not use provider-native tools APIs.
+The assistants ask the model for a JSON `functionCalls` plan. Resume edits execute locally; tracker operations execute through the local API. Provider-native tools APIs are not used.
 
 | Category | Operations | Examples |
 | --- | ---: | --- |
@@ -58,9 +58,10 @@ The resume assistant asks the model for a JSON `functionCalls` plan and executes
 | Sections | 4 | `addSection`, `moveSection` |
 | Entries | 3 | `addEntry`, `deleteEntry` |
 | Lines | 4 | `addLine`, `setLine` |
-| **Total** | **14** | [Full names, arguments, and behavior](docs/tools.md) |
+| Tracker | 5 | `setJobStatus`, `addReminder` |
+| **Total** | **19** | [Full names, arguments, and behavior](docs/tools.md) |
 
-Each chat turn plans one batch of at most **10 calls**. Provider configuration is checked before a request. Before execution, a model self-check reviews the plan, and the local executor independently validates allowed names, arguments, and target IDs. It runs on a clone and saves the result only after success. A missing target allows one recovery attempt; unresolved or rejected edits ask for clarification or stop. An oversized plan gets one reduction request.
+Each chat turn plans one batch of at most **10 calls**. Tracker changes use a model self-check, a separate local allowlist/argument validator and the server’s existing storage validation. The server matches company and optional job title; ambiguous or missing targets return a clarification without executing the batch. Reminder times use the browser’s IANA time zone and the existing calendar validation. Resume editing follows its existing flow: Provider configuration is checked before a request. Before execution, a model self-check reviews the plan, and the local executor independently validates allowed names, arguments, and target IDs. It runs on a clone and saves the result only after success. A missing target allows one recovery attempt; unresolved or rejected edits ask for clarification or stop. An oversized plan gets one reduction request.
 
 PDF import uses a separate loop: at most **120 rounds**, **3 AI attempts per stage**, and **3 rejected proposals per step**. Completed earlier batches may remain saved if a later import stage stops. See the [harness details](docs/tools.md#configuration-and-failure-handling).
 
@@ -80,9 +81,9 @@ Use desktop **Chrome 105+** and a MiniMax API key.
 2. Open **AutoApply → Console → Profile**. Enter your contact details and base resume; save them.
 3. Open **Settings**, select **minimax**, enter your API key, and click **Save Settings**, then **Test Connection**.
 4. Open a job posting and click **Start Apply** in the popup. Review the tailored resume, follow the site's Apply link, then reopen the popup on the application form to autofill supported fields.
-5. Review each filled field and attachment, submit through the website yourself, and manage the saved application in **Console → Applications**.
+5. Review each filled field and attachment, submit through the website yourself, and click **I have submitted** in the popup, then open **Applications** to view the tracker dashboard.
 
-For the optional local tracker, use **Python 3.12+** (tested on 3.14.3):
+Tracking requires the local service and its token in **Console → Settings → Local Tracker**. Capture, tailoring and filling can continue while the tracker is unavailable. Use **Python 3.12+** (tested on 3.14.3):
 
 ```bash
 python3 -m venv .venv
@@ -114,9 +115,9 @@ Package the extension with `python3 scripts/package_extension.py`; the ZIP is wr
 
 ## Privacy & Security
 
-Profiles, resumes, API keys, settings, application records, and notes stay in the extension's `chrome.storage.local` until a feature sends selected context to a configured provider. AI requests can include job text, relevant resume content, instructions, conversations, or notes. PDF import can send the selected PDF to a provider that supports it. API keys authenticate those requests.
+Profiles, resumes, API keys, settings and autofill knowledge stay in the extension's `chrome.storage.local`. Applications and notes are stored by the local tracker; older extension applications remain read only for import. AI requests can include job text, relevant resume content, instructions, conversations, or notes. PDF import can send the selected PDF to a provider that supports it. API keys authenticate those requests.
 
-The separate tracker stores JSON, CSV, resumes, attachments, notes, and reminders under its local `data/`, `applications/`, and `backups/` directories, which Git ignores. It does not call an LLM provider. Its optional application-account/password fields are saved as plain text.
+The tracker stores JSON, CSV, resumes, attachments, notes, and reminders under its local `data/`, `applications/`, and `backups/` directories, which Git ignores. It does not call an LLM provider. Its optional application-account/password fields are saved as plain text.
 
 The local API requires a Bearer token for all data endpoints, binds to `127.0.0.1`, and omits application accounts and passwords from responses. It uses the same storage as the dashboard.
 
@@ -139,8 +140,9 @@ The implementation and test evidence are linked below.
 | Measure | Result | Evidence |
 | --- | --- | --- |
 | Resume operations | 14: 3 contact, 4 section, 3 entry, 4 line | [Executable allowlist](extension/options/resumeFunctions.js), [tools table](docs/tools.md) |
-| Python tests | 331 passed; 294 subtests | [Tracker test suite](tests/server/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
-| Extension tests | 28 passed: 27 executor/validator tests and 1 documentation consistency test | [Node test suite](tests/extension/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
+| Tracker operations | 5; **19 tools total** with resume operations | [Tracker registry](extension/options/trackerFunctions.js), [tools table](docs/tools.md) |
+| Python tests | 367 passed; 294 subtests | [Tracker test suite](tests/server/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
+| Extension tests | 117 passed: resume validation, tool documentation, tracker client, background/content routing, popup workflows, read-only import, profile storage, server notes and summary | [Node test suite](tests/extension/), [CI runs](https://github.com/YuexinJ778/AutoApply/actions/workflows/ci.yml) |
 | Lint and packaging | Ruff correctness rules, ESLint recommended, JavaScript syntax, and ZIP packaging | [CI workflow](.github/workflows/ci.yml) |
 
 See the [benchmark plan](docs/evaluation.md) for portal field counts and paired timing runs.
@@ -152,7 +154,7 @@ Autofill support varies by website.
 - CAPTCHA, login, MFA, and portal-specific steps require user interaction.
 - Custom widgets, dynamic forms, cross-origin frames, and file-upload controls can need site-specific handling.
 - Provider failures and incorrect model proposals can stop editing; review the generated content and filled fields.
-- The extension and tracker have independent storage, without synchronization; the tracker is single-user.
+- The tracker is single-user. Application tracking and notes require its running local API; older extension applications are available only for import.
 - Local data is not encrypted by this project; current features use broad host access and the debugger permission.
 - The shared provider-settings guard currently requires a nonempty API-key field for Ollama.
 

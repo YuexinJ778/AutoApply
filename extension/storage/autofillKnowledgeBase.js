@@ -3,7 +3,7 @@
 
   const KNOWLEDGE_BASE_KEY = "autofillKnowledgeBase";
   const LEGACY_DATASET_KEY = "autofillDataset";
-  const APP_DATA_KEY = "appDataV1";
+  const APP_DATA_KEY = "profileDataV2";
   const LEGACY_PROFILE_KEYS = Object.freeze(["profile", "candidateProfile", "candidateResume"]);
   const PROFILE_FIELDS = Object.freeze([
     "fullName",

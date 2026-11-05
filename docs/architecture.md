@@ -1,6 +1,6 @@
 # Architecture
 
-AutoApply contains a Chrome extension and a separate local Streamlit job tracker. M1 adds a local FastAPI in the Streamlit process, sharing the tracker storage and its process lock. The extension will connect in M2; its existing storage is still active at this milestone. See the [API contract](local-api.md).
+AutoApply connects its Chrome extension to FastAPI in the local Streamlit process, sharing the tracker storage and its process lock. Capture, tailored PDFs, autofill coverage and explicit submission confirmation use this API. Notes, dashboard summary counts and the five tracker agent operations also use this API; older extension applications are read only for import. See the [API contract](local-api.md) and [extension tracking](tracker-extension.md).
 
 ## Chrome extension
 
@@ -9,8 +9,8 @@ The browser loads the JavaScript listed in the [manifest](../extension/manifest.
 | Entry point | Responsibility |
 | --- | --- |
 | [Popup](../extension/popup/popup.html) and [controller](../extension/popup/popup.js) | Start job capture, resume preparation, and application autofill from the active tab. |
-| [Console](../extension/options/options.html) and [controller](../extension/options/options.js) | Edit profiles and resumes, configure providers, and manage applications and notes. |
-| [Background service worker](../extension/background/background.js) | Route extension messages, request page content, parse job details, and inject extraction scripts when needed. |
+| [Console](../extension/options/options.html) and [controller](../extension/options/options.js) | Edit profiles and resumes, configure providers/tracker access, import legacy applications, and open the tracker dashboard. Read and edit tracker notes, with AI context fetched from the server. |
+| [Background service worker](../extension/background/background.js) | Route extension messages and content-script tracker requests, request page content, parse job details, and inject extraction scripts when needed. |
 | [Page content script](../extension/content/content.js) | Read page content and handle commands sent to the job tab. |
 | [Application pipeline](../extension/content/applyPipeline.js) | Scan fields, map profile values, attach resume files, and check readiness without submitting the application. |
 | [Keyword autofill](../extension/content/keywordAutofill.js) | Match saved field knowledge, request review for unresolved fields, and persist confirmed mappings. |
@@ -21,7 +21,7 @@ Scripts communicate through extension messages and shared `Stage*` globals. Scri
 
 ## Storage and provider requests
 
-The extension's [`storage/`](../extension/storage/) modules use `chrome.storage.local` for profiles, provider settings and API keys, resume versions, application records, notes, and autofill knowledge. Configured provider requests go directly from the extension to that provider; a locally configured Ollama endpoint is also supported.
+The extension's [`storage/`](../extension/storage/) modules use `chrome.storage.local` for profiles, provider settings and API keys, resume versions and autofill knowledge. Application records and notes live on the server; legacy extension application keys are read only for import. Notes AI conversations stay in memory until explicitly saved to a server note. Configured provider requests go directly from the extension to that provider; a locally configured Ollama endpoint is also supported.
 
 AI actions can send job and resume content, conversation or notes context, and user instructions. PDF import can send the selected PDF to a provider that supports it. API keys authenticate requests. The [application pipeline](../extension/content/applyPipeline.js) prefers the saved profile and uses the bundled [mock profile](../extension/data/mockCandidateProfile.json) as its fallback when a usable local profile is unavailable.
 
@@ -42,10 +42,17 @@ The same pipeline performs filling and validation after matching. It records HSB
 
 ## Local job tracker
 
-The [Streamlit app](../server/app.py) manages a separate set of jobs, companies, resume files, attachments, notes, and reminders. [Storage](../server/storage.py) writes beneath the job tracker's own directory, independent of the shell's current directory:
+The [Streamlit app](../server/app.py) manages the jobs, companies, resume files, attachments, notes and reminders used by the tracker API. [Storage](../server/storage.py) writes beneath the job tracker's own directory, independent of the shell's current directory:
 
 - `data/` stores JSON and CSV records and settings.
 - `applications/` stores per-job resume files, attachments, notes, and reminders.
 - `backups/` stores recovery copies.
 
 These runtime directories are excluded from Git. The app does not make LLM requests. The [local configuration](../server/.streamlit/config.toml) binds Streamlit to loopback and disables usage telemetry; the root README's launch command supplies the same options when starting outside this directory. Calendar and reminder behavior is implemented in [calendar utilities](../server/calendar_utils.py).
+
+
+## Tracker agent
+
+The Tracker assistant uses the existing JSON `functionCalls` pattern: one model plan, one self-check, a separate [tracker allowlist and validator](../extension/options/trackerFunctions.js), and one authenticated API batch. The model receives current status IDs/labels, the browser's local date and time zone, and notes as data. Read-only questions return no calls. Resume editing keeps its own 14-operation registry; tracker actions add five operations, for 19 total.
+
+The [server action adapter](../server/tracker_actions.py) resolves company and optional job title against unarchived applications. It returns `AMBIGUOUS` or `NOT_FOUND` before writes when targets cannot be resolved. Mutations delegate to existing job, Markdown note and reminder storage under the shared lock; local reminder times use the calendar's existing IANA/DST rules. No browser-side job lookup loop or server LLM is introduced.

@@ -12,7 +12,8 @@
     "resumeJson"
   ]);
   var AUTOFILL_KNOWLEDGE_BASE_KEY = "autofillKnowledgeBase";
-  var APP_DATA_KEY = "appDataV1";
+  var APP_DATA_KEY = "profileDataV2";
+  var LEGACY_APP_DATA_KEY = "appDataV1";
 
   function isObject(value) {
     return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -333,12 +334,13 @@
       }
     }
 
-    var storagePayload = await getLocal(CANDIDATE_STORAGE_PRIORITY.concat([AUTOFILL_KNOWLEDGE_BASE_KEY, APP_DATA_KEY]));
+    var storagePayload = await getLocal(CANDIDATE_STORAGE_PRIORITY.concat([AUTOFILL_KNOWLEDGE_BASE_KEY, APP_DATA_KEY, LEGACY_APP_DATA_KEY]));
 
-    if (isObject(storagePayload[APP_DATA_KEY])) {
+    var profileKey = isObject(storagePayload[APP_DATA_KEY]) ? APP_DATA_KEY : LEGACY_APP_DATA_KEY;
+    if (isObject(storagePayload[profileKey])) {
       return {
-        candidateResume: buildCandidateResumeFromAppData(storagePayload[APP_DATA_KEY]),
-        source: "chrome.storage.local:" + APP_DATA_KEY
+        candidateResume: buildCandidateResumeFromAppData(storagePayload[profileKey]),
+        source: "chrome.storage.local:" + profileKey
       };
     }
 
