@@ -6,3 +6,7 @@ streamlit-calendar==1.4.0
 tzlocal>=5.3,<6
 # IANA timezone fallback on platforms without system zoneinfo (notably Windows).
 tzdata>=2025.2
+# Local API, started by the dashboard in the same process.
+fastapi==0.162.0
+uvicorn==0.54.0
+python-multipart==0.0.33

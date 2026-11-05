@@ -9,13 +9,17 @@ import json
 import math
 import os
 import re
+import secrets
 import shutil
 import subprocess
 import uuid
 import warnings
 from datetime import date, datetime, timezone
+from functools import wraps
 from pathlib import Path
+from threading import RLock
 from typing import Any, BinaryIO, Mapping, Sequence
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
@@ -26,13 +30,26 @@ BACKUPS_DIR = PROJECT_ROOT / "backups"
 JOBS_FILE = DATA_DIR / "jobs.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
 
+# Dashboard callbacks and API threads share one writer lock. Reentrancy lets
+# complete operations call the same storage helpers without releasing it.
+_STORAGE_LOCK = RLock()
+
+
+def _locked(function):
+    @wraps(function)
+    def call(*args, **kwargs):
+        with _STORAGE_LOCK:
+            return function(*args, **kwargs)
+    return call
+
+
 SUMMARY_GROUPS = ("offer", "rejected", "pending")
 CUSTOM_FIELD_TYPES = ("text", "date", "select", "checkbox")
 _INTERNAL_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]*$")
 LATEX_TIMEOUT_SECONDS = 30
 PDF_LIBRARY_SCHEMA_VERSION = 1
 COMPILE_STATUS_SCHEMA_VERSION = 1
-PDF_VERSION_SOURCES = ("compiled", "uploaded", "legacy")
+PDF_VERSION_SOURCES = ("compiled", "uploaded", "legacy", "extension")
 ATTACHMENT_SCHEMA_VERSION = 1
 REMINDER_SCHEMA_VERSION = 1
 REMINDER_KINDS = ("interview", "assessment", "deadline", "follow_up", "other")
@@ -209,6 +226,7 @@ def _is_valid_backup_source(path: Path) -> bool:
     return True
 
 
+@_locked
 def atomic_write_json(
     path: str | Path,
     data: Any,
@@ -259,6 +277,7 @@ def atomic_write_json(
             backup_temporary.unlink()
 
 
+@_locked
 def ensure_storage() -> None:
     """Create all local directories and default JSON files when absent."""
 
@@ -315,6 +334,8 @@ def _normalise_job(raw_job: Mapping[str, Any]) -> dict[str, Any]:
         "password": "",
         "created_at": "",
         "updated_at": "",
+        "source": "manual",
+        "canonical_url": "",
     }
     for key, default in string_defaults.items():
         if job.get(key) is None:
@@ -323,6 +344,7 @@ def _normalise_job(raw_job: Mapping[str, Any]) -> dict[str, Any]:
             job.setdefault(key, default)
     if not isinstance(job.get("custom_fields"), dict):
         job["custom_fields"] = {}
+    job.setdefault("autofill_stats", None)
     archived = job.get("archived", False)
     job["archived"] = archived if isinstance(archived, bool) else False
     return job
@@ -342,6 +364,7 @@ def _normalise_jobs_document(raw: Any) -> dict[str, Any]:
     return document
 
 
+@_locked
 def load_jobs() -> dict[str, Any]:
     """Load all jobs and supply defaults for fields missing in old records."""
 
@@ -366,6 +389,7 @@ def load_jobs() -> dict[str, Any]:
         return recovered
 
 
+@_locked
 def save_jobs(payload: Mapping[str, Any] | Sequence[Mapping[str, Any]]) -> None:
     """Validate and atomically save the jobs document."""
 
@@ -421,6 +445,7 @@ def _normalise_company_columns(raw: Any) -> list[dict[str, Any]]:
     return columns
 
 
+@_locked
 def load_company_columns() -> list[dict[str, Any]]:
     """Read only the company schema; browsing companies never creates job files."""
 
@@ -428,6 +453,7 @@ def load_company_columns() -> list[dict[str, Any]]:
     return copy.deepcopy(_load_settings_document()["company_columns"])
 
 
+@_locked
 def add_company_column(
     label: str, field_type: str = "text", options: Sequence[str] | str | None = None
 ) -> dict[str, Any]:
@@ -445,6 +471,7 @@ def add_company_column(
     return copy.deepcopy(columns[-1])
 
 
+@_locked
 def update_company_column(
     column_id: str, label: str, field_type: str = "text",
     options: Sequence[str] | str | None = None,
@@ -474,6 +501,7 @@ def update_company_column(
     return copy.deepcopy(columns[index])
 
 
+@_locked
 def delete_company_column(column_id: str) -> bool:
     """Remove a custom definition and its CSV values without touching other data."""
 
@@ -658,12 +686,14 @@ def _load_companies_with_fields() -> tuple[list[dict[str, Any]], list[str]]:
         return recovered, fields
 
 
+@_locked
 def load_companies() -> list[dict[str, Any]]:
     """Read the tracking list, using a valid backup instead of losing damaged data."""
 
     return _load_companies_with_fields()[0]
 
 
+@_locked
 def save_companies(
     records: Sequence[Mapping[str, Any]], *,
     company_columns: Sequence[Mapping[str, Any]] | None = None,
@@ -723,6 +753,7 @@ def save_companies(
             backup_temporary.unlink()
 
 
+@_locked
 def create_company(values: Mapping[str, Any]) -> dict[str, Any]:
     """Add a manual tracking record without creating or changing any job."""
 
@@ -733,6 +764,7 @@ def create_company(values: Mapping[str, Any]) -> dict[str, Any]:
     return dict(company)
 
 
+@_locked
 def update_company(company_id: str, values: Mapping[str, Any]) -> dict[str, Any]:
     """Change only supplied fields while retaining the record's UUID."""
 
@@ -746,6 +778,7 @@ def update_company(company_id: str, values: Mapping[str, Any]) -> dict[str, Any]
     raise KeyError(f"Company not found: {company_id}")
 
 
+@_locked
 def delete_company(company_id: str) -> bool:
     """Delete only the selected UUID from the independent tracking list."""
 
@@ -784,6 +817,7 @@ def _read_prompts_csv(path: Path) -> list[dict[str, str]]:
     return records
 
 
+@_locked
 def load_prompts() -> list[dict[str, str]]:
     """Read literal CSV text without writing; recover only from a valid backup."""
 
@@ -808,6 +842,7 @@ def load_prompts() -> list[dict[str, str]]:
         return recovered
 
 
+@_locked
 def save_prompts(records: Sequence[Mapping[str, str]]) -> None:
     """Use the existing CSV backup, fsync and atomic-replace storage convention."""
 
@@ -852,6 +887,7 @@ def _prompt_values(description: str, content: str) -> dict[str, str]:
     return {"description": description.strip(), "content": content}
 
 
+@_locked
 def create_prompt(description: str, content: str) -> dict[str, str]:
     values = _prompt_values(description, content)
     records = load_prompts()
@@ -860,6 +896,7 @@ def create_prompt(description: str, content: str) -> dict[str, str]:
     return record
 
 
+@_locked
 def update_prompt(prompt_id: str, description: str, content: str) -> dict[str, str]:
     values = _prompt_values(description, content)
     records = load_prompts()
@@ -871,6 +908,7 @@ def update_prompt(prompt_id: str, description: str, content: str) -> dict[str, s
     raise KeyError(f"Prompt not found: {prompt_id}")
 
 
+@_locked
 def delete_prompt(prompt_id: str) -> bool:
     records = load_prompts()
     remaining = [record for record in records if record["id"] != prompt_id]
@@ -977,6 +1015,7 @@ def _validate_settings(document: Mapping[str, Any]) -> None:
             raise ValueError("Custom field order must be an integer.") from error
 
 
+@_locked
 def load_settings() -> dict[str, Any]:
     """Load status and custom-field configuration with legacy defaults."""
 
@@ -1012,6 +1051,7 @@ def _load_settings_document() -> dict[str, Any]:
         return recovered
 
 
+@_locked
 def save_settings(settings: Mapping[str, Any], *, initialise_storage: bool = True) -> None:
     """Validate and atomically save settings."""
 
@@ -1048,6 +1088,21 @@ def validate_job_values(job: dict[str, Any]) -> dict[str, Any]:
     job["applied_date"] = _validate_applied_date(job.get("applied_date", ""))
     if not isinstance(job.get("custom_fields"), dict):
         raise ValueError("custom_fields must be an object.")
+    if job.get("source", "manual") not in ("manual", "import", "extension"):
+        raise ValueError("Invalid job source.")
+    stats = job.get("autofill_stats")
+    if stats is not None:
+        if not isinstance(stats, dict):
+            raise ValueError("autofill_stats must be an object or null.")
+        filled, detected = stats.get("filled"), stats.get("detected")
+        if type(filled) is not int or type(detected) is not int or not 0 <= filled <= detected:
+            raise ValueError("autofill_stats requires 0 <= filled <= detected integers.")
+        try:
+            recorded_at = datetime.fromisoformat(stats["recorded_at"])
+        except (KeyError, TypeError, ValueError) as error:
+            raise ValueError("autofill_stats.recorded_at must be an ISO timestamp.") from error
+        if recorded_at.tzinfo is None:
+            raise ValueError("autofill_stats.recorded_at must include a timezone.")
     return job
 
 
@@ -1081,13 +1136,16 @@ def _append_jobs(jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return copy.deepcopy(jobs)
 
 
+@_locked
 def create_job(job_data: Mapping[str, Any]) -> dict[str, Any]:
     """Create a job with a new stable UUID and its application directory."""
 
     job = validate_job_values(_new_job_record(job_data))
+    _validate_job_status(job)
     return _append_jobs([job])[0]
 
 
+@_locked
 def create_jobs_batch(validated_jobs: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
     """Append an already validated batch using one fresh read and one atomic save.
 
@@ -1099,6 +1157,177 @@ def create_jobs_batch(validated_jobs: Sequence[Mapping[str, Any]]) -> list[dict[
     if not validated_jobs:
         return []
     return _append_jobs([_new_job_record(job) for job in validated_jobs])
+
+
+
+def _validate_job_status(job: Mapping[str, Any]) -> None:
+    if job.get("status_id") not in {status["id"] for status in _load_settings_document()["statuses"]}:
+        raise ValueError("status_id must be a configured status ID.")
+
+
+def canonicalize_job_url(url: str) -> str:
+    """Normalize identity while retaining query parameters which select a job."""
+
+    if not isinstance(url, str):
+        raise ValueError("job_url must be an HTTP URL.")
+    parts = urlsplit(url.strip())
+    if parts.scheme.lower() not in ("http", "https") or not parts.hostname:
+        raise ValueError("job_url must be an HTTP URL.")
+    host = parts.hostname.lower()
+    if ":" in host:
+        host = f"[{host}]"
+    port = parts.port
+    if port is not None and (parts.scheme.lower(), port) not in (("http", 80), ("https", 443)):
+        host = f"{host}:{port}"
+    query = sorted(
+        (key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True)
+        if not key.lower().startswith("utm_") and key.lower() not in ("gclid", "fbclid")
+    )
+    return urlunsplit((parts.scheme.lower(), host, parts.path.rstrip("/") or "/", urlencode(query), ""))
+
+
+@_locked
+def find_jobs_by_url(url: str | None = None) -> list[dict[str, Any]]:
+    """Find all jobs, or those whose normalized URL matches the supplied URL."""
+
+    jobs = load_jobs()["jobs"]
+    if url is None:
+        return copy.deepcopy(jobs)
+    canonical = canonicalize_job_url(url)
+    matches = []
+    for job in jobs:
+        try:
+            identity = job.get("canonical_url") or canonicalize_job_url(job.get("job_url", ""))
+        except ValueError:
+            continue  # Legacy manual jobs may contain a label instead of an HTTP URL.
+        if identity == canonical:
+            matches.append(copy.deepcopy(job))
+    return matches
+
+
+@_locked
+def upsert_job_by_url(values: Mapping[str, Any]) -> dict[str, Any]:
+    """Create once per URL; updates preserve fields omitted by the caller."""
+
+    changes = dict(values)
+    canonical = canonicalize_job_url(changes.get("job_url", ""))
+    matches = find_jobs_by_url(canonical)
+    changes["canonical_url"] = canonical
+    if matches:
+        return update_job(matches[0]["id"], changes)
+    changes.setdefault("status_id", "planning")
+    return create_job(changes)
+
+
+@_locked
+def get_job_notes(job_id: str) -> str:
+    if get_job_by_id(job_id) is None:
+        raise KeyError("Job not found.")
+    return load_text_file(get_job_directory(job_id) / "notes.md")
+
+
+@_locked
+def save_job_notes(job_id: str, text: str) -> str:
+    if get_job_by_id(job_id) is None:
+        raise KeyError("Job not found.")
+    save_text_file(get_job_directory(job_id) / "notes.md", text)
+    return text
+
+
+@_locked
+def get_api_token() -> str:
+    """Generate the local API credential once and keep it in local settings."""
+
+    settings = load_settings()
+    token = settings.get("api_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        settings["api_token"] = token
+        save_settings(settings)
+    return token
+
+
+_EXTENSION_STATUS_IDS = {
+    "saved": "planning", "to_apply": "planning", "draft": "planning",
+    "draft_prepared": "planning", "form_filled": "planning",
+    "resume_uploaded": "planning", "ready_to_submit": "planning", "failed": "planning",
+    "applied": "applied", "submitted": "applied",
+    "interview": "interviewing", "interviewing": "interviewing",
+    "offer": "offer", "accepted": "offer", "rejected": "rejected",
+    "withdrawn": "planning",
+}
+
+
+def _extension_notes_markdown(notes: Any) -> str:
+    """Keep Console note dates, titles and Markdown in the tracker's one file."""
+
+    if notes is None:
+        return ""
+    if isinstance(notes, str):
+        return notes
+    if not isinstance(notes, list):
+        raise ValueError("Extension notes must be text or a list of note objects.")
+    sections = []
+    for note in notes:
+        if not isinstance(note, Mapping):
+            raise ValueError("Each extension note must be an object.")
+        fields = {}
+        for key in ("date", "title", "contentMarkdown", "content", "nextAction", "createdAt"):
+            value = note.get(key) or ""
+            if not isinstance(value, str):
+                raise ValueError(f"Extension note {key} must be text.")
+            fields[key] = value.strip()
+        date_text = fields["date"] or fields["createdAt"][:10]
+        title = fields["title"] or "Untitled Note"
+        heading = " · ".join(part for part in (date_text, title) if part)
+        content = fields["contentMarkdown"] or fields["content"]
+        if not content and fields["nextAction"]:
+            content = "## Next Action\n" + fields["nextAction"]
+        sections.append(f"## {heading}\n\n{content}".rstrip())
+    return "\n\n---\n\n".join(sections)
+
+
+@_locked
+def import_extension_jobs(records: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Import legacy extension jobs once, without overwriting later tracker edits."""
+
+    prepared = []
+    for record in records:
+        status = str(record.get("status", "saved")).lower()
+        if status not in _EXTENSION_STATUS_IDS:
+            raise ValueError("Unknown extension status.")
+        values = {
+            "company": record.get("company", ""),
+            "job_title": record.get("jobTitle") or record.get("role", ""),
+            "job_url": record.get("jobUrl", ""),
+            "location": record.get("location", ""),
+            "status_id": _EXTENSION_STATUS_IDS[status],
+            "applied_date": str(record.get("appliedAt") or "")[:10],
+            "source": "import",
+        }
+        if "filledFieldCount" in record or "formFieldCount" in record:
+            values["autofill_stats"] = {
+                "filled": record.get("filledFieldCount", 0),
+                "detected": record.get("formFieldCount", 0),
+                "recorded_at": record.get("updatedAt") or record.get("createdAt") or _utc_now(),
+            }
+        values = validate_job_values(_normalise_job(values))
+        canonicalize_job_url(values["job_url"])
+        _validate_job_status(values)
+        prepared.append((values, status == "withdrawn", _extension_notes_markdown(record.get("notes"))))
+    imported = []
+    for values, withdrawn, notes in prepared:
+        matches = find_jobs_by_url(values["job_url"])
+        if matches:
+            imported.append(matches[0])
+            continue
+        job = upsert_job_by_url(values)
+        if withdrawn:
+            job = archive_job(job["id"])
+        if notes:
+            save_job_notes(job["id"], notes)
+        imported.append(job)
+    return imported
 
 
 def _canonical_job_id(job_id: Any) -> str:
@@ -1113,6 +1342,7 @@ def _canonical_job_id(job_id: Any) -> str:
     return canonical
 
 
+@_locked
 def get_job_by_id(job_id: str) -> dict[str, Any] | None:
     """Return a defensive copy of one job, or None when it does not exist."""
 
@@ -1123,6 +1353,7 @@ def get_job_by_id(job_id: str) -> dict[str, Any] | None:
     return None
 
 
+@_locked
 def update_job(job_id: str, updates: Mapping[str, Any]) -> dict[str, Any]:
     """Update a job while preserving its UUID and creation timestamp."""
 
@@ -1137,18 +1368,27 @@ def update_job(job_id: str, updates: Mapping[str, Any]) -> dict[str, Any]:
         changed["created_at"] = existing.get("created_at", "")
         changed["updated_at"] = _utc_now()
         changed = validate_job_values(_normalise_job(changed))
+        if "status_id" in updates:
+            _validate_job_status(changed)
+        if "job_url" in updates:
+            try:
+                changed["canonical_url"] = canonicalize_job_url(changed["job_url"])
+            except ValueError:
+                changed["canonical_url"] = ""
         document["jobs"][index] = changed
         save_jobs(document)
         return copy.deepcopy(changed)
     raise KeyError(f"Job not found: {canonical}")
 
 
+@_locked
 def archive_job(job_id: str, archived: bool = True) -> dict[str, Any]:
     """Archive or unarchive a job without deleting any application files."""
 
     return update_job(job_id, {"archived": bool(archived)})
 
 
+@_locked
 def get_job_directory(job_id: str, create: bool = False) -> Path:
     """Return a validated UUID directory located directly under applications/."""
 
@@ -1166,6 +1406,7 @@ def get_job_directory(job_id: str, create: bool = False) -> Path:
     return directory
 
 
+@_locked
 def delete_job(job_id: str) -> None:
     """Delete one job and only its validated applications/<uuid> directory."""
 
@@ -1340,6 +1581,7 @@ def _validate_reminders_document(raw: Any) -> dict[str, Any]:
     return {"schema_version": REMINDER_SCHEMA_VERSION, "reminders": reminders}
 
 
+@_locked
 def load_reminders(job_id: str) -> dict[str, Any]:
     """Read only; missing old-job files are empty, damaged files are never reset."""
 
@@ -1369,6 +1611,7 @@ def load_reminders(job_id: str) -> dict[str, Any]:
         return recovered
 
 
+@_locked
 def list_reminders(job_id: str) -> list[dict[str, Any]]:
     """Return fresh data sorted by the actual event instant and stable UUID."""
 
@@ -1399,6 +1642,7 @@ def _write_reminders(job_id: str, document: Mapping[str, Any]) -> None:
     _atomic_write_job_json(job_id, ("reminders.json",), validated)
 
 
+@_locked
 def create_reminder(job_id: str, reminder_data: Mapping[str, Any]) -> dict[str, Any]:
     """Create a reminder only when explicitly called by a save action."""
 
@@ -1416,6 +1660,7 @@ def create_reminder(job_id: str, reminder_data: Mapping[str, Any]) -> dict[str, 
     return copy.deepcopy(reminder)
 
 
+@_locked
 def update_reminder(job_id: str, reminder_id: str, updates: Mapping[str, Any]) -> dict[str, Any]:
     """Edit only reminder fields; the UUID and creation timestamp stay unchanged."""
 
@@ -1434,10 +1679,12 @@ def update_reminder(job_id: str, reminder_id: str, updates: Mapping[str, Any]) -
     raise KeyError(f"Reminder not found: {canonical}")
 
 
+@_locked
 def set_reminder_status(job_id: str, reminder_id: str, status: str) -> dict[str, Any]:
     return update_reminder(job_id, reminder_id, {"status": status})
 
 
+@_locked
 def delete_reminder(job_id: str, reminder_id: str) -> bool:
     """Remove one UUID only; the UI must obtain deletion confirmation first."""
 
@@ -1451,6 +1698,7 @@ def delete_reminder(job_id: str, reminder_id: str) -> bool:
     return True
 
 
+@_locked
 def load_text_file(path: str | Path) -> str:
     """Load a UTF-8 application text file, returning blank when absent."""
 
@@ -1460,6 +1708,7 @@ def load_text_file(path: str | Path) -> str:
     return source.read_text(encoding="utf-8")
 
 
+@_locked
 def save_text_file(path: str | Path, text: str) -> None:
     """Atomically save a UTF-8 application text file."""
 
@@ -1503,6 +1752,7 @@ def _looks_like_pdf(content: bytes) -> bool:
     return content[:1024].lstrip().startswith(b"%PDF")
 
 
+@_locked
 def save_uploaded_pdf(job_id: str, content: bytes | bytearray | BinaryIO) -> Path:
     """Validate and atomically store applications/<job_id>/resume.pdf."""
 
@@ -1530,6 +1780,7 @@ def save_uploaded_pdf(job_id: str, content: bytes | bytearray | BinaryIO) -> Pat
     return destination
 
 
+@_locked
 def load_resume_pdf(job_id: str) -> bytes | None:
     """Read the locally stored resume PDF, or return None when absent."""
 
@@ -1537,6 +1788,7 @@ def load_resume_pdf(job_id: str) -> bytes | None:
     return path.read_bytes() if path.is_file() else None
 
 
+@_locked
 def get_resume_pdf_metadata(job_id: str) -> dict[str, Any] | None:
     """Return local resume PDF name, byte size and UTC modification time."""
 
@@ -1551,6 +1803,7 @@ def get_resume_pdf_metadata(job_id: str) -> dict[str, Any] | None:
     }
 
 
+@_locked
 def delete_resume_pdf(job_id: str) -> bool:
     """Delete the local resume PDF and report whether one existed."""
 
@@ -1616,6 +1869,7 @@ def load_compiled_preview(job_id: str) -> bytes | None:
     return data if _looks_like_pdf(data) else None
 
 
+@_locked
 def compile_resume_latex(job_id: str, source: str) -> dict[str, Any]:
     """Save resume.tex and publish a preview only after a successful pdflatex run."""
 
@@ -1834,6 +2088,7 @@ def _migrate_legacy_resume_pdf(job_id: str) -> dict[str, Any]:
     return document
 
 
+@_locked
 def list_pdf_versions(job_id: str) -> list[dict[str, Any]]:
     document = _migrate_legacy_resume_pdf(job_id)
     versions = [dict(item) for item in document["versions"] if isinstance(item, dict)]
@@ -1879,17 +2134,22 @@ def _add_pdf_version(
     return dict(metadata)
 
 
+@_locked
 def add_uploaded_pdf_version(
     job_id: str,
     content: bytes | bytearray | BinaryIO,
     label: str,
     original_filename: str,
+    source: str = "uploaded",
 ) -> dict[str, Any]:
+    if get_job_by_id(job_id) is None:
+        raise KeyError("Job not found.")
     return _add_pdf_version(
-        job_id, content, label, "uploaded", original_filename
+        job_id, content, label, source, original_filename
     )
 
 
+@_locked
 def save_compiled_pdf_version(job_id: str, label: str) -> dict[str, Any]:
     preview = load_compiled_preview(job_id)
     if preview is None:
@@ -1897,6 +2157,7 @@ def save_compiled_pdf_version(job_id: str, label: str) -> dict[str, Any]:
     return _add_pdf_version(job_id, preview, label, "compiled")
 
 
+@_locked
 def load_pdf_version(job_id: str, version_id: str) -> bytes:
     path = _pdf_version_path(job_id, version_id)
     if not path.is_file():
@@ -1907,6 +2168,7 @@ def load_pdf_version(job_id: str, version_id: str) -> bytes:
     return data
 
 
+@_locked
 def rename_pdf_version(job_id: str, version_id: str, label: str) -> dict[str, Any]:
     canonical = _canonical_job_id(version_id)
     document = _migrate_legacy_resume_pdf(job_id)
@@ -1921,6 +2183,7 @@ def rename_pdf_version(job_id: str, version_id: str, label: str) -> dict[str, An
     raise KeyError(f"PDF version not found: {canonical}")
 
 
+@_locked
 def delete_pdf_version(job_id: str, version_id: str) -> bool:
     canonical = _canonical_job_id(version_id)
     document = _migrate_legacy_resume_pdf(job_id)
@@ -2064,6 +2327,7 @@ def _write_attachment_index(job_id: str, document: Mapping[str, Any]) -> None:
     _atomic_write_job_json(job_id, ("attachments", "index.json"), validated)
 
 
+@_locked
 def list_attachments(job_id: str) -> list[dict[str, Any]]:
     """Return this job's stored metadata without creating directories or indexes."""
 
@@ -2071,6 +2335,7 @@ def list_attachments(job_id: str) -> list[dict[str, Any]]:
     return sorted(files, key=lambda item: (item["uploaded_at"], item["id"]), reverse=True)
 
 
+@_locked
 def add_attachments(
     job_id: str, files: Sequence[tuple[str, bytes]]
 ) -> list[dict[str, Any]]:
@@ -2133,6 +2398,7 @@ def add_attachments(
     return [dict(item[0]) for item in pending]
 
 
+@_locked
 def get_attachment_path(job_id: str, file_id: str) -> Path:
     """Return the selected indexed file's validated path for bounded preview reads."""
 
@@ -2147,12 +2413,14 @@ def get_attachment_path(job_id: str, file_id: str) -> Path:
     raise FileNotFoundError(f"Attachment not found in this job: {canonical}")
 
 
+@_locked
 def load_attachment(job_id: str, file_id: str) -> bytes:
     """Read the original bytes of one indexed attachment."""
 
     return get_attachment_path(job_id, file_id).read_bytes()
 
 
+@_locked
 def delete_attachment(job_id: str, file_id: str) -> bool:
     """Delete one attachment; restore the index if the file cannot be removed."""
 

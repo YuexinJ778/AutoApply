@@ -29,6 +29,7 @@ from calendar_utils import (
     reminder_summary,
 )
 from import_jobs import build_import_template, parse_and_validate_import
+import local_service
 
 from storage import (
     JobDirectoriesError,
@@ -3190,19 +3191,35 @@ def _render_calendar(jobs: list[dict[str, Any]], settings: dict[str, Any]) -> No
                 open_col.button("Open Job", key=f"summary_{key}_{item['job_id']}_{item['reminder_id']}", on_click=_open_calendar_job, args=(item["job_id"], item["reminder_id"]))
 
 
-def _render_settings(jobs: list[dict[str, Any]], settings: dict[str, Any]) -> None:
+def _render_settings(
+    jobs: list[dict[str, Any]], settings: dict[str, Any],
+    service: local_service.LocalService,
+) -> None:
     st.title("Settings")
-    status_tab, custom_field_tab, timezone_tab = st.tabs(["Status Management", "Custom Field Management", "Time Zone"])
+    status_tab, custom_field_tab, timezone_tab, api_tab = st.tabs([
+        "Status Management", "Custom Field Management", "Time Zone", "Local API",
+    ])
     with status_tab:
         _render_status_settings(jobs, settings)
     with custom_field_tab:
         _render_custom_field_settings(settings)
     with timezone_tab:
         _render_timezone_settings(settings)
+    with api_tab:
+        st.subheader("Local tracker API")
+        if service.running:
+            st.success(f"Running at {service.url}")
+        else:
+            st.error(f"Local API unavailable: {service.error or 'The API thread stopped.'}")
+        st.caption("Tracker URL")
+        st.code(service.url, language=None)
+        st.caption("Copy this token into the extension's Tracker settings.")
+        st.code(service.token, language=None)
 
 
 def main() -> None:
     try:
+        service = local_service.start_local_service()
         jobs, settings = _load_application_data()
     except Exception as exc:
         st.error("Local data could not be loaded safely. All editing features have been disabled.")
@@ -3210,13 +3227,16 @@ def main() -> None:
         st.info("Check the JSON files in data/ and backups/, then refresh the page.")
         st.stop()
 
+    if not service.running:
+        st.warning(f"Local API unavailable: {service.error or 'The API thread stopped.'}")
+
     if st.session_state.get("page") == "import_jobs":
         _keep_import_dashboard_filters()
     _render_sidebar()
     _show_flash()
     page = str(st.session_state.setdefault("page", "dashboard"))
     if page == "settings":
-        _render_settings(jobs, settings)
+        _render_settings(jobs, settings, service)
     elif page == "calendar":
         _render_calendar(jobs, settings)
     elif page == "companies":

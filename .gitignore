@@ -20,7 +20,7 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Local job-tracker state
-/job-tracker/data/
-/job-tracker/applications/
-/job-tracker/backups/
+# Local server state
+/server/data/
+/server/applications/
+/server/backups/
