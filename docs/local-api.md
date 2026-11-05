@@ -18,7 +18,7 @@ API responses omit saved `account` and `password` fields. The API has no CORS or
 Host middleware and adds no upload size limit; storage performs PDF validation.
 The extension client runs in background, popup, or options. A content script
 sends a runtime message to background for tracker operations. See
-[extension setup and validation](tracker-extension.md).
+[extension setup](tracker-extension.md).
 
 ## Contract
 
@@ -34,7 +34,7 @@ sends a runtime message to background for tracker operations. See
 | POST | `/api/actions` | `{ "functionCalls": [{ "name": "setJobStatus", "args": { "company": "Example Labs", "status": "interviewing" } }], "timezone": "America/Indianapolis" }`; executes a validated tracker batch. See below. |
 | POST | `/api/import` | `{ "jobs": [legacy extension records] }`; returns the imported/existing jobs. |
 
-Use server status **IDs**, such as `planning`, `applied`, and `interviewing`.
+PATCH uses configured status **IDs**, such as `planning`, `applied`, and `interviewing`; agent `setJobStatus` also accepts a configured label.
 Dates use `YYYY-MM-DD`. Autofill statistics are
 `{ "filled": 9, "detected": 10, "recorded_at": "2026-11-05T17:00:00Z" }`.
 Recording autofill statistics does not change status. The popup records
@@ -73,45 +73,13 @@ For `addReminder`, `datetime` is an ISO local date/time, for example `2026-11-12
 
 Operations execute sequentially through existing storage functions. Completed file writes are not rolled back if a later disk write fails; a transport or storage failure is reported as an error, without claiming that no writes occurred. No LLM runs on the server.
 
-## Verify
+## Calling the API
 
-Copy the Settings token into a shell variable named `TRACKER_TOKEN`, then run:
-
-```sh
-curl -i http://127.0.0.1:8765/api/health
-curl -i http://127.0.0.1:8765/api/jobs
-curl -i -H "Authorization: Bearer $TRACKER_TOKEN" http://127.0.0.1:8765/api/jobs
-```
-
-Expected statuses: 200, 401, 200. Run the regression suite with:
+Copy the Settings token into a shell variable named `TRACKER_TOKEN`:
 
 ```sh
-python -m pip install -r tests/requirements.txt
-python -m pytest -q
-node --test tests/extension/*.test.js
+curl http://127.0.0.1:8765/api/health
+curl -H "Authorization: Bearer $TRACKER_TOKEN" http://127.0.0.1:8765/api/jobs
 ```
 
-The tests use temporary storage. UI tests stub the service launcher; API tests
-exercise real storage through FastAPI TestClient. The API and dashboard share
-one process lock around storage reads and writes. LaTeX compilation executes
-`pdflatex` outside that lock against a snapshot of the submitted source; its
-file preparation and result publication use short locked sections. Existing jobs gain missing
-field defaults when read, while the on-disk schema version remains 1.
-
-## M1.1 validation — 2026-11-05
-
-- Python 3.14.3 / Streamlit 1.62.0: **331 passed**, plus 294 subtests.
-  Starlette emits one TestClient/httpx deprecation warning.
-- Regression coverage includes POST preserving all existing fields and file
-  bytes, readable storage errors, import sample counts, indexed import errors
-  without writes, and jobs reads/writes while a fake pdflatex process is blocked.
-- Local service tests cover one cached daemon thread, live running status,
-  the original bind error, and Settings URL/token display. The service ends
-  with its owning process; it has no shutdown/restart interface.
-- Extension: **28 passed**. Ruff, ESLint, JavaScript syntax, dependency checks,
-  extension packaging and ZIP integrity passed.
-- A real browser session started the simplified service and Settings showed it
-  running. Live curl checks returned 200 / 401 / 200; repeated POST preserved
-  the stored bytes, zero-field imports had null statistics, and an invalid
-  third record returned its original reason with no batch writes. Both listeners
-  belonged to one process. The isolated process and test data were removed.
+The dashboard and API use the same storage. LaTeX compilation runs `pdflatex` outside the storage lock against a snapshot of the submitted source; file preparation and result publication use short locked sections. Missing extension metadata fields receive defaults when older jobs are read, without changing the on-disk schema version.

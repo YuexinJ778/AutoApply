@@ -20,11 +20,11 @@
 
 ## 系統需求
 
-- Python 3.10 或更新版本
+- Python 3.12 或更新版本
 - 支援 Streamlit 的現代瀏覽器
 - 如需編譯 LaTeX，系統必須另外安裝 `pdflatex`；macOS 可安裝 MacTeX 或 BasicTeX
 
-安裝相依套件後，所有功能皆可離線使用。`pdflatex` 不是 Python 套件，無法由 `requirements.txt` 安裝；找不到它時，其他功能仍可使用，但 Compile 會停用。
+安裝相依套件後，tracker 的資料管理功能可離線使用；extension 的 AI 功能需要連上設定的模型 provider。`pdflatex` 不是 Python 套件，無法由 `requirements.txt` 安裝；找不到它時，其他功能仍可使用，但 Compile 會停用。
 
 ## 安裝與執行
 
@@ -43,11 +43,9 @@ Calendar 使用已安裝並檢查 API／前端資源的 `streamlit-calendar==1.4
 
 API 會在第一個瀏覽器分頁打開 dashboard 時啟動；若 extension 顯示 Tracker 未啟動，除了執行啟動指令，也請打開 dashboard 頁面。**Settings → Local API** 顯示 `http://127.0.0.1:8765` 的執行狀態與可複製 token。除 `/api/health` 外，API 請求必須帶 `Authorization: Bearer <token>`。token 第一次啟動時產生並保存在本機 Settings；API 回應不含 `account`、`password`。
 
-API 與 dashboard 直接使用同一個 `storage.py`，由同一把 process 內的鎖保護資料讀寫；pdflatex 在鎖外執行，編譯期間仍可讀寫申請資料。API 契約見 [local-api.md](../docs/local-api.md)，extension 設定與 M2 驗收見 [tracker-extension.md](../docs/tracker-extension.md)。
+API 與 dashboard 直接使用同一個 `storage.py`，由同一把 process 內的鎖保護資料讀寫；pdflatex 在鎖外執行，編譯期間仍可讀寫申請資料。API 契約見 [local-api.md](../docs/local-api.md)，extension 設定見 [tracker-extension.md](../docs/tracker-extension.md)。
 
 `POST /api/jobs` 找到相同網址就原樣回傳，找不到才建立 Preparing to Apply；後續更新一律走 PATCH。匯入只在實際偵測到欄位時保存填表統計，驗證失敗會指出第幾筆與原始原因，整批不寫入。
-
-M1.1 驗證：331 項 Python 測試與 28 項 extension 測試通過；完整結果見 [API 驗收紀錄](../docs/local-api.md)。
 
 ## 專案結構
 
@@ -112,10 +110,6 @@ Companies 頂端的 **Add Column** 可新增 Text、Date、Select 或 Checkbox�
 Checkbox 寫入 CSV 時統一使用 `true`／`false`。讀取會忽略前後空白及大小寫：`true/1/yes/on` 為 true，空白或 `false/0/no/off` 為 false，其餘值會報錯，不會把字串 `"false"` 當成 true。
 
 公司欄位不會加入 Dashboard、工作 Details 或 Import JSON 模板，也不會改動工作的 `custom_fields`。公司表單的 Today、Clear date 只修改草稿，按 Save 才保存。
-
-2026-09-23 驗證：230 項 unittest 及 21 個 Python 檔案語法檢查通過，所有測試使用隔離資料。Chrome 實測新增 Text 欄位、Add/Edit 顯示、未儲存草稿跨型別切換／Cancel／新增第二欄保留、保存後重載與重新開啟，以及切換公司不混值。Date／Select／Checkbox 的完整保存流程、Today／Clear date／刪除與故障情境由自動測試覆蓋，未逐項重做瀏覽器驗證。正式 `data/` 與 `backups/` 共 20 個檔案的 SHA-256 保持不變。
-
-欄位管理追加驗證：245 項 unittest 與 21 個 Python 檔案語法檢查通過。Chrome 隔離實測改名、Select Yes／No 轉 Checkbox、其他未保存草稿保留、取消刪除、確認刪除及重新載入；亦檢查實際 CSV 的 `true`／`false` 與刪欄結果。其他轉型組合、無效資料拒絕及磁碟錯誤還原由自動測試驗證。正式資料、備份及工作附件共 257 個檔案的 SHA-256 保持不變。
 
 ## Import JSON：複製模板與批次新增
 
@@ -272,32 +266,23 @@ Calendar 的摘要只計入 `scheduled` 提醒，不包含全天投遞紀錄：
 
 `.gitignore` 已預設忽略使用者資料，但仍請在每次提交前自行確認。
 
-## 測試
+## 執行測試
 
-2026-09-22 多選刪除驗證：完整 **187 項 unittest** 通過（含新增 12 項選取／刪除測試），19 個 Python 檔案 `py_compile` 與 `pip check` 通過。隔離測試涵蓋選 3 刪 3、全選 20 取消 2 後刪 18、所有篩選重設選取與確認、排序後 UUID／Open 對應、空結果、取消確認、固定刪除目標、部分失敗、附件及公司／設定資料保留、Calendar 不產生已刪工作事件，以及選 3 筆仍匯出 20 筆 JSON／CSV。
-
-本次 Chrome 使用 `/tmp` 隔離資料實測逐筆多選、全選、取消個別選取、清空選取／停用刪除、公司欄排序、取消確認與實際刪除。20 筆全選後取消兩筆，實際只刪 18 筆及資料夾；其餘 2 筆與 4 筆篩選外工作及原有檔案保持完整，公司資料／設定／既有備份測試檔亦保持不變。刪除後保留搜尋、統計更新，排序後 Open 開啟正確的 Company 04 工作。**未在瀏覽器逐一重測所有篩選組合、故障情境或 CSV／JSON 落地下載內容**；這些由自動測試驗證。所有刪除測試均未使用正式工作資料。
-
-測試只使用臨時目錄，不會修改正式資料。請使用已安裝 `requirements.txt` 的 Python（例如 `.venv/bin/python`），從 repo 根目錄執行；UI 測試使用 Streamlit 原生 AppTest：
+從 repo 根目錄執行；測試使用隔離的暫存資料：
 
 ```bash
-python -m pip install pytest
-python -m pytest tests -q
+python -m pip install -r tests/requirements.txt
+python -m pytest -q
+node --test tests/extension/*.test.js
 ```
 
-Calendar／Reminders 測試涵蓋日期衍生事件、UUID、儲存與備份復原、DST、摘要邊界及 Streamlit 表單／導航；AppTest 不會執行行事曆 iframe 的 JavaScript。實際瀏覽器中的月份切換、日期／事件點擊、資料更新與本機前端資源載入須另做瀏覽器驗證，不能由 Python 測試結果推定。
-
-2026-09-22 Dashboard 驗證：完整 175 項 unittest、18 個 Python 檔案語法檢查及 `pip check` 通過。新增 8 項測試涵蓋 Saved 與其他篩選交集、Open UUID、同 session 選擇、CSV／JSON 與表格一致、45 筆完整匯出、密碼遮蔽、重複欄名、中文／引號／換行／前導零、空結果與資料不變。Chrome 使用隔離資料實測四個開關、搜尋文字輸入後立即 Prepare download（27 筆更新為 1 筆）、Saved＋搜尋＋公司＋地點交集、篩選後 Open 正確工作、返回後保留 Saved 開關，以及空結果停用下載。已點擊 CSV／JSON 下載，但瀏覽器工具的下載事件等待逾時，下載管理頁受工具政策限制；最終落地檔案的瀏覽器端內容驗證尚未完成，不能視為通過。自動測試已解析實際交給 `st.download_button` 的兩種格式內容。正式資料的 255 個檔案 SHA-256 與修改時間全部保持不變，沒有新增或遺失檔案。
-
-2026-09-20 Import JSON 驗證：完整 167 項 unittest 通過（含新增的 27 項匯入測試），17 個 Python 檔案語法檢查通過。Chrome 使用暫存資料，實際點擊複製按鈕並以本機 Cmd+V 貼上，確認完整 3,004 字元模板可解析、與預覽逐字一致，且無既有工作或帳密；另實測三筆工作匯入、輸入清空、Dashboard 統計、保留 Show rejected 關閉及 Open 正確工作。正式資料檔案內容與修改時間保持不變。
-
-2026-09-16 驗證紀錄：完整 140 項 unittest 通過，語法檢查與 `pip check` 通過。Chrome 使用獨立暫存資料，已實測 Month／Week／List、Previous／Next／Today、日期點擊、同日更多事件展開、事件詳情、Open Job、提醒編輯後更新、View in Calendar，以及篩選／Refresh 保留檢視位置；確認 iframe 及其 JavaScript／CSS 從 `127.0.0.1` 的套件資源載入。正式資料的 38 個檔案雜湊比對一致。尚未逐一手動驗證其他瀏覽器／作業系統、DST 表單及斷網運作；DST 與刪除確認已有自動測試覆蓋。
+測試範圍與 autofill 覆蓋率計算方式見 [Evaluation](../docs/evaluation.md)。
 
 ## 已知限制
 
 - 只支援單機、單使用者，不處理多人同時寫入。
 - 每份工作只編輯一份 `resume.tex`；不提供多檔案 LaTeX 專案樹、自動編譯、BibTeX、`latexmk` 或多編譯引擎。
 - 程式不會自動安裝 TeX 套件；若原始碼使用本機未安裝的套件，編譯會失敗並保留上一次成功的預覽。
-- 不驗證職缺網址、不連線到雲端，也不提供 AI、自動投遞或同步功能。提醒只在 App 內顯示，沒有關閉 App 後的通知或背景排程。
+- server 不呼叫雲端模型；AI 規劃由 extension 執行，再透過本機 API 操作同一份資料。投遞必須由使用者完成。提醒只在 App 內顯示，沒有關閉 App 後的通知或背景排程。
 - Calendar 第一版不支援循環事件、邀請參加者、拖曳編輯或 ICS 匯入／匯出。
 - PDF 是否能直接嵌入顯示取決於瀏覽器；下載功能不受此限制。
