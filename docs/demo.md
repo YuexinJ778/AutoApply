@@ -1,28 +1,28 @@
-# Create the main-flow step GIF
+# Local workflow demo
 
-Use 4–6 screenshots from a real Chrome run with a fictional Demo Applicant profile. Present them as held steps covering the complete workflow.
+The step GIF uses real Chrome screenshots and a fictional Demo Applicant profile.
 
-## Capture the screenshots
-
-1. Create a fresh Chrome profile, load `extension/` with **Load unpacked**, and follow the README Quick start. Configure MiniMax and run **Test Connection** before taking screenshots.
-2. Use a fixed window size and 100% browser zoom. Capture these four stages in order:
-
-| Stage | Screenshot |
+| Capture | Details |
 | --- | --- |
-| Capture | The public job posting used for the application. |
-| Tailor | The generated application-specific resume in Console; optionally include its A4 preview as a separate frame. |
-| Autofill | The application form after AutoApply fills its fields and attaches the resume. |
-| Track | The matching entry in Console Applications. |
+| Date | November 5, 2026 |
+| Browser | Chrome 156.0.8078.80 |
+| Extension | AutoApply 1.0.0, commit `8dfd1e8` |
+| Configuration | API settings left blank |
+| Job | [Software Engineer, New Grad at Nooks](https://jobs.ashbyhq.com/nooks/311d6e70-5cfa-4e80-89f6-fe00ac1f9f53) on Ashby |
 
-3. Save the PNG or JPEG files in numbered order, such as `01-job.png` through `04-applications.png`. Include one or two intermediate screenshots if they make the transition clearer.
+## Captured steps
 
-Keep the API-key settings page outside the captured material and stop before final submission. All contact details, resume content, and application records shown should be fictional.
+1. Enter and save the fictional profile in **Console → Profile → Manual**.
+2. Add project, education, and skills sections; use **Generate Resume** to render the local A4 PDF preview.
+3. Open the public job posting and its application form.
+4. Click **AutoFill Form**. The extension fills the name, email, and phone fields from the saved profile. Leave unresolved questions blank.
+5. Open **Applications** and refresh to view the saved job entry.
 
-## Assemble and publish
+The application remains in **Saved** status. The resume is edited manually in this sequence; AI tailoring and automatic resume attachment remain on the [roadmap](../README.md#limitations--roadmap).
 
-- Output: `docs/assets/demo.gif`, 960 or 1280 pixels wide, under 10 MB.
-- Playback: about 30 seconds total, with enough time to read each step. For example, hold four frames for 7.5 seconds each or six frames for 5 seconds each.
-- Format: a step-by-step sequence of held screenshots; no continuous-video frame-rate target.
-- README caption: **Fictional profile**.
+## Assets
 
-Record the date, Chrome/extension version, platform and posting, and the outcome of each Quick start step alongside the screenshots. Once the screenshots and Quick start result are supplied, assemble the GIF and replace the README's pending line.
+- [Step GIF](assets/demo.gif): 5 screenshots, 6 seconds per step, 30 seconds total, 1280 × 900 pixels.
+- [Console and profile](assets/console.png), [resume editor and A4 preview](assets/resume-editor.png), and [application tracking](assets/applications.png): 1600 pixels wide.
+
+The screenshots are cropped to the product or form content. They retain the real interface and contain fictional contact details and resume content.

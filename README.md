@@ -10,7 +10,9 @@ AI-assisted resume tailoring and application autofill, with a local Python job t
 
 ## Demo
 
-Main-flow step GIF pending: **Capture → Tailor → Autofill → Track**. See the [capture steps](docs/demo.md).
+![AutoApply local workflow: profile, manual resume editor and A4 preview, a public job posting, contact autofill, and application tracking](docs/assets/demo.gif)
+
+Fictional profile: **Edit resume → A4 preview → Autofill contact fields → Track**. [Demo details](docs/demo.md).
 
 ## Why
 
@@ -152,7 +154,7 @@ Autofill support varies by website.
 
 Next steps:
 
-1. Capture the complete capture → tailor → autofill → track flow as a step GIF with fictional data.
+1. Record AI resume tailoring and automatic resume attachment in the demo.
 2. Add a reproducible portal benchmark and paired manual/tool timing measurements.
 3. Design explicit extension/tracker data exchange and narrower on-demand host access.
 4. Build interview-preparation workflows; current preparation features are job guidance and notes.
