@@ -1,4 +1,4 @@
-# 本地求職管理工具
+# Local Job Tracker
 
 這是一套單機、單使用者、完全在本機執行的求職申請管理工具。它使用 Streamlit 顯示介面，以 JSON、Markdown 與一般檔案保存資料；不需要資料庫、帳號、API server 或網路服務。
 
@@ -42,7 +42,7 @@ Calendar 使用已安裝並檢查 API／前端資源的 `streamlit-calendar==1.4
 ## 專案結構
 
 ```text
-server/job_manage/
+job-tracker/
 ├── app.py
 ├── storage.py
 ├── import_jobs.py
@@ -79,9 +79,9 @@ server/job_manage/
     └── settings.json.bak
 ```
 
-測試集中在 repo 根目錄的 `tests/server/job_manage/`。
+測試集中在 repo 根目錄的 `tests/job-tracker/`。
 
-`data/`、`applications/` 與 `backups/` 都位於 `server/job_manage/` 下。每筆工作的附件目錄使用程式產生的 UUID，不使用公司或職缺名稱。
+`data/`、`applications/` 與 `backups/` 都位於 `job-tracker/` 下。每筆工作的附件目錄使用程式產生的 UUID，不使用公司或職缺名稱。
 
 `.streamlit/config.toml` 會停用 Streamlit 使用統計回傳，並只讓服務監聽 `127.0.0.1`，避免把含明文密碼的工具暴露到區域網路。
 
@@ -270,7 +270,7 @@ Calendar 的摘要只計入 `scheduled` 提醒，不包含全天投遞紀錄：
 
 ```bash
 python -m pip install pytest
-python -m pytest tests/server -q
+python -m pytest tests -q
 ```
 
 Calendar／Reminders 測試涵蓋日期衍生事件、UUID、儲存與備份復原、DST、摘要邊界及 Streamlit 表單／導航；AppTest 不會執行行事曆 iframe 的 JavaScript。實際瀏覽器中的月份切換、日期／事件點擊、資料更新與本機前端資源載入須另做瀏覽器驗證，不能由 Python 測試結果推定。
@@ -289,4 +289,3 @@ Calendar／Reminders 測試涵蓋日期衍生事件、UUID、儲存與備份復�
 - 不驗證職缺網址、不連線到雲端，也不提供 AI、自動投遞或同步功能。提醒只在 App 內顯示，沒有關閉 App 後的通知或背景排程。
 - Calendar 第一版不支援循環事件、邀請參加者、拖曳編輯或 ICS 匯入／匯出。
 - PDF 是否能直接嵌入顯示取決於瀏覽器；下載功能不受此限制。
-# job_manage

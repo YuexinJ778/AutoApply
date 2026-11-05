@@ -5,12 +5,11 @@ AI-assisted resume tailoring and application autofill, with a local Python job t
 ## Repository layout
 
 ```text
-extension/          Chrome extension (Manifest V3, JavaScript)
-server/job_manage/  Local Python job tracker
-tests/              Python tests and extension test directory
-docs/               Architecture and product assets
-scripts/            Extension packaging
-.github/workflows/  Workflow configuration
+extension/    Chrome extension (Manifest V3, JavaScript)
+job-tracker/  Standalone local Python job tracker
+tests/        Job-tracker test suite
+docs/         Architecture
+scripts/      Extension packaging
 ```
 
 See [architecture](docs/architecture.md) for runtime boundaries and site-specific form matching.
@@ -23,7 +22,7 @@ See [architecture](docs/architecture.md) for runtime boundaries and site-specifi
 - Autofill application fields and attach a generated resume on supported forms.
 - Save jobs, track application stages, and keep notes for each application.
 
-The resume assistant uses [14 allowed editing operations](extension/options/resumeFunctions.js), validates each batch, and limits it to 10 calls. The separate [local job manager](server/job_manage/) adds a dashboard, company tracking, interview reminders and calendar, resume PDF versions, attachments, and recovery from local backups.
+The resume assistant asks the model for a JSON `functionCalls` plan, validates it against [14 allowed local editing operations](extension/options/resumeFunctions.js), and executes the allowed calls in the extension, with a limit of 10 calls per batch. This is a JSON planning protocol; provider-native tools APIs are not used. The separate [local job tracker](job-tracker/) adds a dashboard, company tracking, interview reminders and calendar, resume PDF versions, attachments, and recovery from local backups.
 
 ## Install
 
@@ -33,30 +32,30 @@ The resume assistant uses [14 allowed editing operations](extension/options/resu
 
 No build step is required.
 
-## Local job manager
+## Local job tracker
 
-The Python job manager runs as a separate Streamlit app. It does not provide an LLM API to the extension, and the two applications do not synchronize their data.
+The Python job tracker runs as a separate Streamlit app. It does not provide an LLM API to the extension, and the two applications do not synchronize their data.
 
 With Python 3.12 or newer, run these commands from the repository root:
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-python -m pip install -r server/job_manage/requirements.txt
-python -m streamlit run server/job_manage/app.py --server.address 127.0.0.1 --browser.gatherUsageStats false
+python -m pip install -r job-tracker/requirements.txt
+python -m streamlit run job-tracker/app.py --server.address 127.0.0.1 --browser.gatherUsageStats false
 ```
 
-The app creates its own data under `server/job_manage/`, regardless of the shell's current directory. It needs no API key. LaTeX compilation additionally requires `pdflatex`; other features work without it. See the [job manager guide](server/job_manage/README.md) for details.
+The app creates its own data under `job-tracker/`, regardless of the shell's current directory. It needs no API key. LaTeX compilation additionally requires `pdflatex`; other features work without it. See the [job tracker guide](job-tracker/README.md) for details.
 
 To collect or run its tests:
 
 ```bash
 python -m pip install pytest
-python -m pytest tests/server --collect-only -q
-python -m pytest tests/server -q
+python -m pytest tests --collect-only -q
+python -m pytest tests -q
 ```
 
-The job-manager suite contains 259 tests. All passed on Python 3.14.3 with Streamlit 1.62.0; Streamlit 1.66.1 currently fails UI state tests, so the requirements pin the tested version.
+The job-tracker suite contains 259 tests. All passed on Python 3.14.3 with Streamlit 1.62.0; Streamlit 1.66.1 currently fails UI state tests, so the requirements pin the tested version.
 
 ## Use
 
@@ -71,7 +70,7 @@ The job-manager suite contains 259 tests. All passed on Python 3.14.3 with Strea
 
 The extension stores profiles, resumes, provider settings, API keys, application records, and notes in `chrome.storage.local`. AI actions send the relevant job content, resume content, instructions, and conversation or notes context to the selected provider. PDF import can send the selected PDF to a provider that supports it. Provider API keys are used for request authentication. Ollama requests go to the configured Ollama endpoint, which defaults to localhost.
 
-The job manager stores JSON, CSV, notes, resume files, and attachments in local `data/`, `applications/`, and `backups/` directories under `server/job_manage/`. These user data directories are excluded from Git. The job manager does not call an LLM provider. Local storage is not encrypted by this project; account and password fields in the job manager are saved as plain text.
+The job tracker stores JSON, CSV, notes, resume files, and attachments in local `data/`, `applications/`, and `backups/` directories under `job-tracker/`. These user data directories are excluded from Git. The job tracker does not call an LLM provider. Local storage is not encrypted by this project; account and password fields in the job tracker are saved as plain text.
 
 The [extension manifest](extension/manifest.json) retains the following permissions for existing features:
 
@@ -91,11 +90,11 @@ Autofill support varies by website. Review the generated resume and filled field
 
 ## Contributors & License
 
-The extension was developed jointly; the module links below identify each contributor's work.
+Contributions are listed by implemented modules.
 
 | Contributor | Contributions |
 | --- | --- |
-| [YuexinJ778](https://github.com/YuexinJ778) | Public repository maintenance and publication; shared extension development, including [resume import and application notes](extension/options/options.js) and [AI request integration](extension/lib/api.js). |
-| [yushliu](https://github.com/yushliu) | Shared extension development, including [resume tool execution and validation](extension/options/resumeFunctions.js), [AI planning and recovery](extension/lib/api.js), and [resume version storage](extension/storage/resumeRegistryStore.js); the [Python job manager](server/job_manage/app.py), [storage and recovery](server/job_manage/storage.py), [calendar](server/job_manage/calendar_utils.py), and its [test suite](tests/server/job_manage/). |
+| [yushliu](https://github.com/yushliu) | Primary implementation of the Chrome extension workflow and resume assistant, including [validated resume operations](extension/options/resumeFunctions.js), [AI planning and recovery](extension/lib/api.js), and [resume version tracking](extension/storage/resumeRegistryStore.js); implemented the [local Python job tracker](job-tracker/app.py), [storage](job-tracker/storage.py), [calendar](job-tracker/calendar_utils.py), and [test suite](tests/job-tracker/). |
+| [YuexinJ778](https://github.com/YuexinJ778) | Implemented [resume import, application notes, and custom AI instructions](extension/options/options.js); contributed extension fixes and maintains the public repository. |
 
 Licensed under the [MIT License](LICENSE).

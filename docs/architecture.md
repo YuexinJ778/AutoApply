@@ -1,6 +1,6 @@
 # Architecture
 
-AutoApply contains a Chrome extension and a separate local Streamlit job manager. They do not share storage or synchronize through a Python API.
+AutoApply contains a Chrome extension and a separate local Streamlit job tracker. They do not share storage or synchronize through a Python API.
 
 ## Chrome extension
 
@@ -40,12 +40,12 @@ Field mapping follows this order:
 
 The same pipeline performs filling and validation after matching. It records HSBC-specific reasons with the result, so callers can distinguish a site rule from a generic match. Final application submission remains a user action.
 
-## Local job manager
+## Local job tracker
 
-The [Streamlit app](../server/job_manage/app.py) manages a separate set of jobs, companies, resume files, attachments, notes, and reminders. [Storage](../server/job_manage/storage.py) writes beneath the job manager's own directory, independent of the shell's current directory:
+The [Streamlit app](../job-tracker/app.py) manages a separate set of jobs, companies, resume files, attachments, notes, and reminders. [Storage](../job-tracker/storage.py) writes beneath the job tracker's own directory, independent of the shell's current directory:
 
 - `data/` stores JSON and CSV records and settings.
 - `applications/` stores per-job resume files, attachments, notes, and reminders.
 - `backups/` stores recovery copies.
 
-These runtime directories are excluded from Git. The app does not make LLM requests. The [local configuration](../server/job_manage/.streamlit/config.toml) binds Streamlit to loopback and disables usage telemetry; the root README's launch command supplies the same options when starting outside this directory. Calendar and reminder behavior is implemented in [calendar utilities](../server/job_manage/calendar_utils.py).
+These runtime directories are excluded from Git. The app does not make LLM requests. The [local configuration](../job-tracker/.streamlit/config.toml) binds Streamlit to loopback and disables usage telemetry; the root README's launch command supplies the same options when starting outside this directory. Calendar and reminder behavior is implemented in [calendar utilities](../job-tracker/calendar_utils.py).

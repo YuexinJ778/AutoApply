@@ -21,7 +21,7 @@ __pycache__/
 .coverage
 htmlcov/
 
-# Local job-manager state
-/server/job_manage/data/
-/server/job_manage/applications/
-/server/job_manage/backups/
+# Local job-tracker state
+/job-tracker/data/
+/job-tracker/applications/
+/job-tracker/backups/
