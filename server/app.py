@@ -901,7 +901,7 @@ def _render_import_jobs(settings: dict[str, Any]) -> None:
     _render_import_template_copy(template_text)
     with st.expander("View JSON template"):
         st.code(template_text, language="json")
-    st.caption("匯入只會新增；再次匯入相同資料會建立新的紀錄。")
+    st.caption("Import adds new records only. Importing the same data again creates duplicate records.")
 
     result = st.session_state.get("import_result")
     if result:
@@ -1234,7 +1234,7 @@ def _render_dashboard(jobs: list[dict[str, Any]], settings: dict[str, Any]) -> N
             )
         view_records.append(row)
 
-    st.caption("匯出套用 Dashboard 上方的篩選條件；欄位及順序依 App 的表格設定。")
+    st.caption("Export uses the Dashboard filters above and the columns and order configured in App settings.")
     format_col, download_col = st.columns([1, 3], vertical_alignment="bottom")
     with format_col:
         export_format = st.selectbox("Export format", ["CSV", "JSON"], key="dashboard_export_format")
@@ -1780,6 +1780,7 @@ def _render_saved_pdf_library(job: dict[str, Any]) -> None:
     source_labels = {
         "compiled": "Compiled from LaTeX",
         "uploaded": "Uploaded",
+        "extension": "Chrome extension",
         "legacy": "Imported from resume.pdf",
     }
     st.caption(

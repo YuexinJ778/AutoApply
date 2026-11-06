@@ -199,7 +199,8 @@
     }
 
     try {
-      var doc = new DOMParser().parseFromString(htmlText, "text/html");
+      var doc = new DOMParser().parseFromString(
+        htmlText.replace(/<\/(?:h[1-6]|div|p|li|header|section)>|<br\s*\/?>/gi, "$&\n"), "text/html");
       var text = cleanString(doc && doc.body ? (doc.body.innerText || doc.body.textContent) : "");
       if (!text) {
         return [];

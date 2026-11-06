@@ -259,11 +259,12 @@
     const stored = appStore ? await appStore.getAppData() : {};
     const canonical = normalizeCanonicalAppData(await loadCanonicalDataFromStorage());
     const localSettings = localStore ? await localStore.getSettings() : {};
+    const hasCanonicalResumes = Object.keys(canonical.resumes).length > 0;
     return normalizeCanonicalAppData({
       profile: hasMeaningfulProfile(stored.profile) ? stored.profile : canonical.profile,
       resume: hasMeaningfulResume(stored.masterResume) ? stored.masterResume : canonical.resume,
-      activeResumeLanguage: stored.activeResumeLanguage || canonical.activeResumeLanguage,
-      resumes: isObject(stored.resumes) && Object.keys(stored.resumes).length ? stored.resumes : canonical.resumes,
+      activeResumeLanguage: hasCanonicalResumes ? canonical.activeResumeLanguage : stored.activeResumeLanguage,
+      resumes: hasCanonicalResumes ? canonical.resumes : stored.resumes,
       autofillAnswers: ensureArray(stored.autofillAnswers).length ? stored.autofillAnswers : canonical.autofillAnswers,
       settings: { ...(stored.settings || {}), ...canonical.settings, ...localSettings }
     });

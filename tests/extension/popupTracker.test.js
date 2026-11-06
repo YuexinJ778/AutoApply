@@ -18,15 +18,17 @@ async function settle(condition) {
 }
 
 async function popup({ offline = false, applicationForm = false, stored = null, patchFailure = false,
-  formUrl = 'https://ats.example.com/form', tabId = 10, openerTabId } = {}) {
+  formUrl = 'https://ats.example.com/form', tabId = 10, openerTabId, currentResume, resumeLanguage = 'en' } = {}) {
   const elements = new Map();
-  const calls = { create: [], patch: [], upload: [], messages: [], generated: 0, dashboard: 0, lookups: 0, lookupUrls: [] };
+  const calls = { create: [], patch: [], upload: [], messages: [], generated: 0, generateRequests: [], dashboard: 0, lookups: 0, lookupUrls: [] };
   const local = stored || { 'artifact/resume.pdf': { content: btoa('%PDF-1.4\nresume'), filename: 'resume.pdf' } };
   if (applicationForm && !stored) local.pendingApply = { jobUrl: job.job_url, trackerJobUrl: job.job_url,
     trackerCompany: job.company, trackerJobTitle: job.job_title,
     sourceTabId: 10,
     status: 'waiting_for_user_to_open_application_form' };
   const canonical = { jobs: [], applications: [], profile: {}, resume: {}, settings: {}, activeResumeLanguage: 'en' };
+  canonical.activeResumeLanguage = resumeLanguage;
+  canonical.resumes = { [resumeLanguage]: currentResume };
   function element(id) {
     if (!elements.has(id)) elements.set(id, { disabled: false, textContent: '', hidden: false,
       classList: { add() {}, remove() {} }, addEventListener(name, fn) { this[name] = fn; } });
@@ -43,7 +45,10 @@ async function popup({ offline = false, applicationForm = false, stored = null, 
       tabs: {
         query(_query, done) { done([{ id: tabId, openerTabId, url: applicationForm ? formUrl : job.job_url }]); },
         sendMessage(_id, message, done) { calls.messages.push(message);
-          done({ ok: true, data: { opened: applicationForm && message.type === 'DETECT' } }); }
+          done({ ok: true, data: message.type === 'PREPARE'
+            ? { filledFieldCount: 4, selectFilledCount: 0, checkboxFilledCount: 0,
+                autofillStats: { filledFieldCount: 5, formFieldCount: 5 } }
+            : { opened: applicationForm && message.type === 'DETECT' } }); }
       },
       storage: { local: {
         get(keys, done) { done(Object.fromEntries(keys.map(key => [key, local[key]]))); },
@@ -63,7 +68,7 @@ async function popup({ offline = false, applicationForm = false, stored = null, 
     Stage5Api: {
       async extractCurrentJobWithAi() { return { ok: true, data: { isJobPosting: true,
         company: job.company, title: job.job_title, url: job.job_url } }; },
-      async generateResume() { calls.generated += 1; return { ok: true, data: { pdfPath: 'artifact/resume.pdf' } }; }
+      async generateResume(request) { calls.generated += 1; calls.generateRequests.push(request); return { ok: true, data: { pdfPath: 'artifact/resume.pdf' } }; }
     },
     AutoApplyTracker: {
       async getJobs(url) { calls.lookups += 1; calls.lookupUrls.push(url);
@@ -77,9 +82,10 @@ async function popup({ offline = false, applicationForm = false, stored = null, 
   };
   vm.createContext(context);
   vm.runInContext(registrySource, context);
-  vm.runInContext(source, context);
+  vm.runInContext(source.replace('  void boot();',
+    '  globalThis.popupAutofillForTest = handleAutofill;\n  void boot();'), context);
   await settle(() => !element('generate-btn').disabled);
-  return { calls, local, element, async click(id) {
+  return { calls, local, element, runAutofill: context.popupAutofillForTest, async click(id) {
     element(id).click();
     await settle(() => !element('generate-btn').disabled);
   } };
@@ -105,6 +111,16 @@ test('Start Apply creates a tracker job without status and uploads the generated
   assert.equal(page.calls.patch.length, 0);
 });
 
+test('Start Apply passes the selected saved resume and language to the real API boundary', async () => {
+  const currentResume = { language: 'zh', header: { contact: { firstName: 'Demo' } },
+    sections: [{ id: 'current', sectionName: '經歷', blocks: [{ lines: [{ id: 'saved-bullet', type: 'bullet', text: 'Saved current resume bullet.' }] }] }] };
+  const page = await popup({ currentResume, resumeLanguage: 'zh' });
+  await page.click('generate-btn');
+  assert.equal(page.calls.generateRequests.length, 1);
+  assert.equal(page.calls.generateRequests[0].activeResumeLanguage, 'zh');
+  assert.deepEqual(page.calls.generateRequests[0].currentResume, currentResume);
+});
+
 test('Tracker failure leaves tailoring working and its error visible after generation succeeds', async () => {
   const page = await popup({ offline: true });
   await page.click('generate-btn');
@@ -127,6 +143,14 @@ test('Only the explicit submitted button marks Applied; autofill carries tracker
   assert.equal(page.calls.patch[0].id, job.id);
   assert.equal(page.calls.patch[0].payload.status_id, 'applied');
   assert.match(page.calls.patch[0].payload.applied_date, /^\d{4}-\d{2}-\d{2}$/);
+});
+
+test('manual autofill displays and returns the deduplicated coverage including a resume upload', async () => {
+  const page = await popup();
+  const result = await page.runAutofill();
+  assert.equal(result.ok, true);
+  assert.equal(result.filledCount, 5);
+  assert.equal(page.element('runtime-status').textContent, 'Status: Autofill completed. Filled=5/5');
 });
 
 test('Save Job reaches the tracker and Applications opens the dashboard', async () => {

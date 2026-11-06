@@ -10,7 +10,7 @@
    `http://127.0.0.1:8765`, copy the dashboard's Settings → Local API token,
    and click **Test tracker connection**. Tracker settings are saved separately
    from LLM provider settings.
-4. Configure the existing resume provider and Profile. **Start Apply** and
+4. Configure your model provider and save your Profile. Start Apply tailors a copy of the current saved resume without changing the main resume. **Start Apply** and
    **Save Job** find or create the server application. Repeating either action
    leaves the server's existing status, company, title and dates unchanged.
 5. Review the generated resume and filled form. Submit through the website
@@ -38,11 +38,11 @@ Open **Console → Tracker** and use **Tracker Assistant** to ask about saved no
 
 > Set Example Labs to Interviewing and add an interview reminder on 2026-11-12 at 10:00 titled Technical interview.
 
-The assistant can set a status or application date, append a note, and add or complete a reminder. It plans one batch of up to ten calls, checks the plan, validates the five allowed operations and sends one API request. These actions do not need an existing note or a selected job. The server resolves the company and optional job title; if multiple applications match, include the job title in your next message. Unknown targets and duplicate reminder titles are reported for clarification.
+The assistant can set a status or application date, append a note, and add or complete a reminder. It plans one batch of up to ten calls, checks proposed writes, validates the five allowed operations and sends one API request. These actions do not need an existing note or a selected job. The server resolves the company and optional job title; if multiple applications match, include the job title in your next message. Unknown targets and duplicate reminder titles are reported for clarification.
 
 Dates and local reminder times use the current date and browser time zone supplied to the model. If a different time zone is unclear, the assistant asks for details. The calendar keeps its existing DST validation. Read-only questions produce no writes, and the assistant reports completed changes from server results. It does not infer submission from notes or autofill.
 
-The Markdown editor still saves notes for the selected job. **Save latest reply to selected job** explicitly appends an assistant reply; chat stays in the current tab.
+The Markdown editor saves notes for the selected job. A successful agent action refreshes server data while retaining an unsaved draft for that same job; a clean editor reloads the latest shared notes. **Save latest reply to selected job** explicitly appends an assistant reply; chat stays in the current tab.
 
 ## Import existing applications
 
@@ -61,36 +61,3 @@ until **Save latest reply to selected job** writes it to that job's note.
 Older extension application data stays read only for import, including
 records saved before updating the extension. Profile and resume edits do not
 rewrite those old records. Applications opens the tracker dashboard.
-
-## M2 validation — 2026-11-05
-
-- **331 Python tests** and **70 extension tests** pass. The 42 new extension
-  cases cover the client/background, popup workflows with the real resume
-  registry, import/navigation, content-to-background tracking, tab association
-  and distinct-field coverage counting.
-- In real Chrome, the OneDrive unpacked extension connected to an isolated
-  Streamlit/API process. A local fictional job and deterministic MiniMax-format
-  provider exercised capture and PDF generation without paid model requests or
-  a real job submission.
-- Start Apply created one planning application; the generated PDF appeared in
-  its version index with source extension. Autofill on a different form URL
-  wrote **filled=4, detected=5** to the original posting, keeping planning and
-  an empty applied date. Only the explicit popup confirmation changed it to
-  Applied with `2026-11-05`. The dashboard displayed that row and reopening the
-  popup read Applied from the server.
-- After the Chrome run, regression tests also verified tab association and
-  selector-based counting, including distinct controls sharing a name or ID. These
-  final corrections were checked in the Node suite.
-- With the tracker process stopped, capture/tailoring still generated a resume
-  and manual autofill completed four text fields. The tracker notice remained
-  visible separately and explained how to start and open the dashboard.
-- The fixture demonstrated coverage, not correctness: generic first/last-name
-  controls received the full name and its file input remained empty. The server
-  PDF version upload passed; portal autofill matching and attachment behavior
-  still require user review. This is not a real-portal coverage benchmark or a
-  measurement of LLM quality.
-
-The test services are stopped after verification. A newly loaded test extension
-retains its fictional Profile and local test provider settings; configure your
-own provider and copy the active tracker's token before normal use. Demo
-screenshots and release materials remain scheduled for M5.

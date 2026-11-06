@@ -2,6 +2,28 @@
 
 AutoApply connects its Chrome extension to FastAPI in the local Streamlit process, sharing the tracker storage and its process lock. Capture, tailored PDFs, autofill coverage and explicit submission confirmation use this API. Notes, dashboard summary counts and the five tracker agent operations also use this API; older extension applications are read only for import. See the [API contract](local-api.md) and [extension tracking](tracker-extension.md).
 
+```mermaid
+flowchart TB
+  Portal[Job portal] <--> Content
+  subgraph Extension[Chrome extension]
+    Popup[Popup] <--> Background[Background worker]
+    Background <--> Content[Content script]
+    Popup <--> Local[(Profile, main resumes, keys, autofill knowledge)]
+    Console[Console] <--> Local
+  end
+  subgraph Service[One local Python process]
+    API[FastAPI: 127.0.0.1:8765] <--> Storage[(storage.py)]
+    Dashboard[Streamlit: 127.0.0.1:8501] <--> Storage
+  end
+  Popup <--> API
+  Background <--> API
+  Console <--> API
+  Popup <--> LLM[Configured LLM provider]
+  Console <--> LLM
+```
+
+There is no second application database in the extension and no synchronization loop. Opening the first dashboard browser session starts FastAPI in a cached thread in the Streamlit process. Storage mutations share the same process lock. The API requires a local token and returns no application accounts or passwords.
+
 ## Chrome extension
 
 The browser loads the JavaScript listed in the [manifest](../extension/manifest.json) and each page's HTML; there is no compilation step.
@@ -21,7 +43,7 @@ Scripts communicate through extension messages and shared `Stage*` globals. Scri
 
 ## Storage and provider requests
 
-The extension's [`storage/`](../extension/storage/) modules use `chrome.storage.local` for profiles, provider settings and API keys, resume versions and autofill knowledge. Application records and notes live on the server; legacy extension application keys are read only for import. Notes AI conversations stay in memory until explicitly saved to a server note. Configured provider requests go directly from the extension to that provider; a locally configured Ollama endpoint is also supported.
+The extension's [`storage/`](../extension/storage/) modules use `chrome.storage.local` for profiles, provider settings and API keys, resume versions and autofill knowledge. Application records and notes live on the server; legacy extension application keys are read only for import. Tracker assistant conversations stay in memory until explicitly saved to a server note. Configured provider requests go directly from the extension to that provider. Current Profile resumes can be tailored using configured MiniMax, OpenAI, DeepSeek or Ollama providers. Start Apply preserves the saved editable sections, plans and self-checks a batch, then validates and executes the resume operations on a copy. Rendering uses that copy, leaving the main resume unchanged.
 
 AI actions can send job and resume content, conversation or notes context, and user instructions. PDF import can send the selected PDF to a provider that supports it. API keys authenticate requests. The [application pipeline](../extension/content/applyPipeline.js) prefers the saved profile and uses the bundled [mock profile](../extension/data/mockCandidateProfile.json) as its fallback when a usable local profile is unavailable.
 
@@ -48,11 +70,11 @@ The [Streamlit app](../server/app.py) manages the jobs, companies, resume files,
 - `applications/` stores per-job resume files, attachments, notes, and reminders.
 - `backups/` stores recovery copies.
 
-These runtime directories are excluded from Git. The app does not make LLM requests. The [local configuration](../server/.streamlit/config.toml) binds Streamlit to loopback and disables usage telemetry; the root README's launch command supplies the same options when starting outside this directory. Calendar and reminder behavior is implemented in [calendar utilities](../server/calendar_utils.py).
+These runtime directories are excluded from Git. The Python service does not make LLM requests; the extension owns planning and provider credentials. The [local configuration](../server/.streamlit/config.toml) binds Streamlit to loopback and disables usage telemetry; the root README's launch command supplies the same options when starting outside this directory. Calendar and reminder behavior is implemented in [calendar utilities](../server/calendar_utils.py).
 
 
 ## Tracker agent
 
-The Tracker assistant uses the existing JSON `functionCalls` pattern: one model plan, one self-check, a separate [tracker allowlist and validator](../extension/options/trackerFunctions.js), and one authenticated API batch. The model receives current status IDs/labels, the browser's local date and time zone, and notes as data. Read-only questions return no calls. Resume editing keeps its own 14-operation registry; tracker actions add five operations, for 19 total.
+The Tracker assistant uses the existing JSON `functionCalls` pattern: one model plan, a self-check for writes, a separate [tracker allowlist and validator](../extension/options/trackerFunctions.js), and one authenticated API batch. The model receives current status IDs/labels, the browser's local date and time zone, and notes as data. Read-only questions return no calls. Resume editing keeps its own 14-operation registry; tracker actions add five operations, for 19 total.
 
-The [server action adapter](../server/tracker_actions.py) resolves company and optional job title against unarchived applications. It returns `AMBIGUOUS` or `NOT_FOUND` before writes when targets cannot be resolved. Mutations delegate to existing job, Markdown note and reminder storage under the shared lock; local reminder times use the calendar's existing IANA/DST rules. No browser-side job lookup loop or server LLM is introduced.
+The public batch executor in [tracker storage](../server/storage.py) resolves company and optional job title against unarchived applications. It returns `AMBIGUOUS` or `NOT_FOUND` before writes when targets cannot be resolved. Mutations delegate to existing job, Markdown note and reminder storage under the shared lock; local reminder times use the calendar's existing IANA/DST rules. The browser does not resolve company/title matches or run a model-driven lookup loop. The server validates the entire batch before writing; later I/O failures do not provide a cross-file rollback.

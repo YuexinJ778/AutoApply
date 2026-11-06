@@ -256,6 +256,7 @@
         };
       }),
       description: normalizeResumeField(raw.description),
+      lines: ensureArray(raw.lines).map(function copyEditorLine(line) { return { ...line }; }),
       waived: Boolean(raw.waived),
       order: Number.isFinite(Number(raw.order)) ? Number(raw.order) : index + 1
     };
@@ -280,6 +281,13 @@
       id: cleanString(raw.id) || fallback.id,
       language: cleanString(lang) === "zh" ? "zh" : "en",
       header: {
+        ...(header.contact && typeof header.contact === "object" ? {
+          contact: { ...header.contact,
+            links: ensureArray(header.contact.links).map(function copyContactLink(link) { return { ...link }; }) }
+        } : {}),
+        ...(Array.isArray(header.links) ? {
+          links: header.links.map(function copyHeaderLink(link) { return { ...link }; })
+        } : {}),
         name: normalizeResumeName(header.name),
         email: normalizeResumeField(header.email),
         phone: normalizeResumeField(header.phone),
