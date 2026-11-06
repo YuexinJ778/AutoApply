@@ -1,6 +1,6 @@
 # Evaluation
 
-AutoApply reports implemented operations, automated tests and measured form coverage separately. A screenshot or fixed model response demonstrates a workflow; it does not establish LLM quality or performance across job portals.
+AutoApply reports implemented operations, automated tests and workflow integration separately. A screenshot or fixed model response demonstrates a workflow; it does not establish LLM quality or performance across job portals.
 
 ## Implementation evidence
 
@@ -26,32 +26,13 @@ A detected field is a distinct control in the form scan. The base and keyword pa
 
 A measurement report should include the raw `filled`, `detected`, `recorded_at` and job URL for every sample, the sample count, distinct sites, date, Chrome version and extension revision. Local demonstration fixtures must be identified separately from real portal forms. The [demo guide](demo.md) describes the media and its configuration.
 
-## Measured local fixture
+## Integration workflow validation
 
-| Measure | Recorded value |
-| --- | --- |
-| Date | 2026-11-05 |
-| Browser | Chrome 156.0.8078.80 |
-| Job / form | `http://127.0.0.1:18888/job` / `http://127.0.0.1:18888/apply` |
-| Provider / model | Local MiniMax-compatible fixed responses / `deterministic-local-fixture` |
-| Source | Working tree based on `06fdd5c`; [capture fingerprints](assets/capture-record.json) |
-| Samples with `detected > 0` | 1 fictional application |
-| Sites | 1 local fictional site; 0 real portals |
-| Filled / detected | 5 / 5 |
-| Aggregate coverage | 100% (`5 / 5`) |
-| Persisted sample timestamp | `2026-11-05T22:44:27.088Z` |
+The Chrome walkthrough uses a fictional local job and form with deterministic local provider responses. It exercises job capture, application-specific PDF generation, form filling, the shared dashboard and Tracker assistant actions. The provider fixture makes no paid model requests; the workflow does not evaluate model quality.
 
-The persisted `autofill_stats` sample is:
+The form run verified that text controls were filled, the generated PDF was selected and the resulting autofill statistics reached the same application in the tracker. Repeating Start Apply preserved that application's existing status and applied date. This is integration validation, not a coverage benchmark.
 
-```json
-{
-  "filled": 5,
-  "detected": 5,
-  "recorded_at": "2026-11-05T22:44:27.088Z"
-}
-```
-
-This run used Chrome, a fictional local form and a deterministic local provider fixture; no paid provider request was made. Four text controls were filled and a new PDF was selected in the file control. The native popup and persisted sample both reported 5/5. It demonstrates field filling and coverage recording through the extension and local API; it is not evidence of general portal coverage, semantic answer correctness or model quality. The sample counts once, not once per screenshot or workflow step.
+Coverage has not been measured on real recruiting websites. The [real-portal benchmark](https://github.com/YuexinJ778/AutoApply/issues/3) tracks that work. The [demo guide](demo.md) describes the fictional setup and the five visible workflow steps.
 
 ## Broader portal measurements
 

@@ -20,7 +20,7 @@ Provider keys, Profile, main resumes and autofill knowledge remain in the extens
 
 The two registries expose **19 tools**. The automated suites contain **367 Python tests** and **133 extension tests** (**500 total**); the [CI workflow](../.github/workflows/ci.yml) also checks lint, JavaScript syntax and packaging.
 
-The [five-step demo](demo.md) uses fictional application data. Its capture record identifies the browser, fixture and provider configuration; fixed model responses demonstrate integration rather than NLP quality. [Evaluation](evaluation.md) defines coverage as `Σfilled / Σdetected`, using only samples with `detected > 0`. The measured fictional local form recorded **5 filled / 5 detected fields**, across **1 application and 1 local site** on **2026-11-05** in Chrome **156.0.8078.80**. This is fixture coverage, not a real-portal benchmark or correctness score. No unmeasured speedup is claimed.
+The [five-step demo](demo.md) shows the popup, Console resume preview, filled form, shared dashboard and Tracker assistant. It uses fictional data and fixed local provider responses to validate integration rather than model quality. [Evaluation](evaluation.md) defines per-application coverage as `Σfilled / Σdetected`, using only the latest samples with `detected > 0`. Coverage on real recruiting websites has not been measured; the [benchmark issue](https://github.com/YuexinJ778/AutoApply/issues/3) tracks that work. No unmeasured correctness or speedup claim is made.
 
 Console supports English/Chinese resume editing and preview. Start Apply PDFs currently support ASCII text only; use Console PDF export for Chinese.
 

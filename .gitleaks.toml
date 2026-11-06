@@ -11,3 +11,12 @@ id = "generic-api-key"
 description = "Exact API object reference and Chrome storage key false positives"
 regexTarget = "secret"
 regexes = ['''^globalThis\.Stage5Api$''', '''^savedJobRecordsV2$''']
+
+# Verified public SHA256 fingerprints from de7c520, not credentials.
+[[rules.allowlists]]
+description = "Exact verified public source SHA256 fingerprints"
+regexTarget = "secret"
+regexes = [
+  '''^ff49386683aecba3a8133a68a62ee0138fb984686886fdae39311f155194c948$''',
+  '''^9fffef30326efbd5bcbc85b22bb26947bcf47ecc7ef16b7a6fc16f6543ee20e5$''',
+]
